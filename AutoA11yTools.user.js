@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-09-04
+// @version      2025-10-30
 // @description  Automatically run a11y tools
 // @author       Wyatt Nilsson (Original header, alt text, and iframe a11y tools are not mine)
 // @match        *://*/*
@@ -10,8 +10,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_unregisterMenuCommand
-// @updateURL    https://github.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/raw/refs/heads/main/Auto%20A11y%20Tools-2025-09-04.user.js
-// @downloadURL  https://github.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/raw/refs/heads/main/Auto%20A11y%20Tools-2025-09-04.user.js
+// @updateURL    https://github.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/raw/refs/heads/main/AutoA11yTools.user.js
+// @downloadURL  https://github.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/raw/refs/heads/main/AutoA11yTools.user.js
 // ==/UserScript==
 
 (function () {
