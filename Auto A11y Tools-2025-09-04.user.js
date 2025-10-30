@@ -10,6 +10,8 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_unregisterMenuCommand
+// @updateURL    https://github.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/raw/refs/heads/main/Auto%20A11y%20Tools-2025-09-04.user.js
+// @downloadURL  https://github.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/raw/refs/heads/main/Auto%20A11y%20Tools-2025-09-04.user.js
 // ==/UserScript==
 
 (function () {
