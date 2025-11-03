@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-03
+// @version      2025-11-04
 // @description  Automatically run a11y tools
 // @author       Wyatt Nilsson (Original header, alt text, and iframe a11y tools are not mine)
 // @match        *://*/*
@@ -548,7 +548,7 @@
             style.textContent = `
         .ContrastOverlay-border {
             position: absolute;
-            border: 2px solid green;
+            border: 2px solid blue;
             border-radius: 4px;
             z-index: 9999;
             pointer-events: none;
@@ -556,8 +556,8 @@
             display: none;
         }
         .ContrastOverlay-highlight {
-            border-color: #393 !important;
-            box-shadow: 1px 2px 5px #9f9;
+            border-color: #339 !important;
+            box-shadow: 1px 2px 5px #99f;
         }
         `;
             document.head.appendChild(style);
