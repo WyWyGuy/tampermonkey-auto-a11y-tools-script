@@ -252,13 +252,34 @@
         if (document.querySelector('.A11y-iframe-label')) return;
 
         container.querySelectorAll('iframe').forEach(function (f) {
-            const labelText = f.getAttribute('aria-label') || f.title || '[Missing]';
-            const prefix = f.hasAttribute('aria-label') ? 'Aria-label: ' : 'Title: ';
+
+            let title = f.title || '[Missing]';
+            let ariaLabel = f.getAttribute('aria-label');
+            let ariaLabelUsedFrom = '';
+            if (!ariaLabel && f.hasAttribute('aria-labelledby')) {
+                const ids = f.getAttribute('aria-labelledby').split(' ');
+                ariaLabel = ids.map(id => document.getElementById(id)?.textContent || '[Missing]').join(', ');
+                ariaLabelUsedFrom = ' (uses labelledby)';
+            }
+            if (!ariaLabel) ariaLabel = '[Missing]';
+
+            let ariaDesc = f.getAttribute('aria-description');
+            let ariaDescUsedFrom = '';
+            if (!ariaDesc && f.hasAttribute('aria-describedby')) {
+                const ids = f.getAttribute('aria-describedby').split(' ');
+                ariaDesc = ids.map(id => document.getElementById(id)?.textContent || '[Missing]').join(', ');
+                ariaDescUsedFrom = ' (uses describedby)';
+            }
+            if (!ariaDesc) ariaDesc = '[Missing]';
 
             const label = document.createElement('div');
-            label.textContent = prefix + labelText;
             label.className = 'AccessibilityHelper A11y-iframe-label';
             label.style.cssText = 'position:absolute;background:#FFF;border:3px solid #CCC;border-radius:7px;padding:5px;text-align:left;white-space:pre-wrap;width:300px;font-size:12px;z-index:9999;transition:all 0.2s ease;display:none;';
+
+            label.textContent =
+                `Title: ${title}\n` +
+                `Aria-label: ${ariaLabel}${ariaLabelUsedFrom}\n` +
+                `Aria-description: ${ariaDesc}${ariaDescUsedFrom}`;
 
             const border = document.createElement('span');
             border.className = 'AccessibilityHelper A11y-iframe-border';
@@ -287,7 +308,6 @@
                 border.style.borderColor = '#393';
                 border.style.boxShadow = '1px 2px 5px #CCC';
             }
-
             function unhighlight() {
                 label.style.borderColor = '#CCC';
                 label.style.boxShadow = 'none';
