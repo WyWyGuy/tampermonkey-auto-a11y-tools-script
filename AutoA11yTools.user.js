@@ -276,10 +276,16 @@
             label.className = 'AccessibilityHelper A11y-iframe-label';
             label.style.cssText = 'position:absolute;background:#FFF;border:3px solid #CCC;border-radius:7px;padding:5px;text-align:left;white-space:pre-wrap;width:300px;font-size:12px;z-index:9999;transition:all 0.2s ease;display:none;';
 
+            const ariaLabelEmoji = ariaLabel !== '[Missing]' ? '✅' : '❌';
+            const ariaDescEmoji = ariaDesc !== '[Missing]' ? '✅' : '❌';
+            const titleEmoji = (title !== '[Missing]' && ariaLabel === '[Missing]' && ariaDesc === '[Missing]') ? '✅' : '❌';
+
             label.textContent =
-                `Title: ${title}\n` +
-                `Aria-label: ${ariaLabel}${ariaLabelUsedFrom}\n` +
-                `Aria-description: ${ariaDesc}${ariaDescUsedFrom}`;
+                `${ariaLabelEmoji}Aria-label: ${ariaLabel}${ariaLabelUsedFrom}\n` +
+                `${ariaDescEmoji}Aria-description: ${ariaDesc}${ariaDescUsedFrom}\n` +
+                `${titleEmoji}Title: ${title}`;
+
+
 
             const border = document.createElement('span');
             border.className = 'AccessibilityHelper A11y-iframe-border';
