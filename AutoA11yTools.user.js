@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-03
+// @version      2025-11-04
 // @description  Automatically run a11y tools
 // @author       Wyatt Nilsson (Original header, alt text, and iframe a11y tools are not mine)
 // @match        *://*/*
@@ -16,7 +16,6 @@
 
 (function () {
     'use strict';
-    console.log("This is a test");
 
     if (window.top !== window.self) return;
 
