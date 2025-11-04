@@ -8,4 +8,4 @@
 |Iframe Labels               | Adds overlays to iframes showing their aria-label, aria-description, and title, or missing.  |
 |Heading Tags                | Adds overlays to headings showing what level of heading they are.                            |
 |Contrast Highlights         | Highlights contrast issues with a blue outline.                                              |
-|\<i\>\/\<b\> Highlights     | Highlights usage of <i> and <b> tags with a red outline.                                     |
+|\<i\>\/\<b\> Highlights     | Highlights usage of \<i\> and \<b\> tags with a red outline.                                 |
