@@ -17,6 +17,7 @@
 (function () {
     'use strict';
 
+    // Prevent running in iframes
     if (window.top !== window.self) return;
 
     const autoRunDomains = [
@@ -26,7 +27,7 @@
         'byuohs.instructure.com'
     ];
 
-    const excludedPath = /^https:\/\/byu\.instructure\.com\/courses\/1026(\/|$)/; //Exclude training course
+    const excludedPath = /^https:\/\/byu\.instructure\.com\/courses\/1026(\/|$)/; // Exclude training course
     const currentHost = window.location.hostname;
     const isAutoRunDomain = autoRunDomains.includes(currentHost);
     const isExcludedPage = excludedPath.test(window.location.href);
@@ -34,7 +35,7 @@
 
     let tempToolStates = {};
 
-    //Central tool tracking object
+    // Central tool tracking object
     const TOOLS = {
         IMG: {
             id: "img",
@@ -73,6 +74,126 @@
         }
     };
 
+    const toolResources = new Map();
+
+    // Resource management functions
+    function ensureToolResources(key) {
+        if (!toolResources.has(key)) {
+            toolResources.set(key, { observers: [], listeners: [], containers: [] });
+        }
+        return toolResources.get(key);
+    }
+
+    function addObserver(key, obs) {
+        ensureToolResources(key).observers.push(obs);
+    }
+
+    function addListener(key, target, type, handler, options) {
+        ensureToolResources(key).listeners.push({ target, type, handler, options });
+        try {
+            target.addEventListener(type, handler, options);
+        } catch (e) { /* ignore */ }
+    }
+
+    function addContainer(key, el) {
+        ensureToolResources(key).containers.push(el);
+    }
+
+    function cleanupTool(key) {
+        const res = toolResources.get(key);
+        if (!res) return;
+        res.observers.forEach(o => { try { o.disconnect(); } catch (e) { } });
+        res.listeners.forEach(l => { try { l.target.removeEventListener(l.type, l.handler, l.options); } catch (e) { } });
+        res.containers.forEach(c => { try { c.remove(); } catch (e) { } });
+        toolResources.delete(key);
+    }
+
+    // Global styles
+    function ensureGlobalStyles() {
+        if (document.getElementById('a11y-overlay-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'a11y-overlay-styles';
+        style.textContent = `
+      .AccessibilityHelper { font-family: Arial, Helvetica, sans-serif; }
+      .A11y-img-label { position:absolute;background:#FFF;border:3px solid #CCC;border-radius:7px;padding:5px;text-align:left;white-space:pre-wrap;font-size:12px;width:150px;z-index:9999;color:black;display:none }
+      .A11y-img-border { position:absolute;border:3px solid #CCC;border-radius:7px;z-index:9998;display:none;pointer-events:none;transition:border-color 0.2s ease, box-shadow 0.2s ease }
+      .A11y-iframe-label { position:absolute;background:#FFF;border:3px solid #CCC;border-radius:7px;padding:5px;text-align:left;white-space:pre-wrap;width:300px;font-size:12px;z-index:9999;transition:all 0.2s ease;display:none }
+      .A11y-iframe-border { position:absolute;border:3px solid #CCC;border-radius:7px;z-index:9998;transition:all 0.2s ease;display:none;pointer-events:none }
+      .AccessibilityHelper-label { background: #FFF;border: 3px solid #CCC;border-radius: 4px;padding: 2px 4px;position: absolute;white-space: nowrap;font-size: 12px;z-index: 10001;color: black;transition: all 0.2s ease;display: none }
+      .AccessibilityHelper-border { position: absolute;border: 3px solid #CCC;border-radius: 4px;z-index: 9999;pointer-events: none;transition: all 0.2s ease;display: none }
+      .AccessibilityHelper-highlight { border-color: #393 !important;box-shadow: 1px 2px 5px #CCC }
+      .IBOverlay-border { position: absolute;border: 2px solid red;border-radius: 4px;z-index: 9999;pointer-events: none;transition: all 0.2s ease;display: none }
+      .IBOverlay-highlight { border-color: #c00 !important;box-shadow: 1px 2px 5px #f99 }
+      .ContrastOverlay-border { position: absolute;border: 2px solid blue;border-radius: 4px;z-index: 9999;pointer-events: none;transition: all 0.2s ease;display: none }
+      .ContrastOverlay-highlight { border-color: #339 !important;box-shadow: 1px 2px 5px #99f }
+    `;
+        document.head.appendChild(style);
+    }
+
+    ensureGlobalStyles();
+
+    // Utility functions
+    function debounce(fn, wait = 80) {
+        let t = null;
+        return function (...args) {
+            clearTimeout(t);
+            t = setTimeout(() => fn.apply(this, args), wait);
+        };
+    }
+
+    function makeLabel(toolKey, className, text, cssText) {
+        const label = document.createElement('div');
+        label.className = 'AccessibilityHelper ' + className;
+        if (cssText) label.style.cssText = cssText;
+        if (text !== undefined) label.textContent = text;
+        document.body.appendChild(label);
+        addContainer(toolKey, label);
+        return label;
+    }
+
+    function makeBorder(toolKey, className, cssText) {
+        const border = document.createElement('div');
+        border.className = 'AccessibilityHelper ' + className;
+        if (cssText) border.style.cssText = cssText;
+        document.body.appendChild(border);
+        addContainer(toolKey, border);
+        return border;
+    }
+
+    function attachAutoUpdate(toolKey, updateFn, opts = {}) {
+        const debounced = opts.debounce === false ? updateFn : debounce(updateFn, opts.wait || 80);
+        addListener(toolKey, window, 'scroll', debounced, { passive: true });
+        addListener(toolKey, window, 'resize', debounced);
+        const mo = new MutationObserver(debounced);
+        mo.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: opts.attributeFilter || ['style', 'class', 'hidden']
+        });
+        addObserver(toolKey, mo);
+        return mo;
+    }
+
+    function normalizeColor(colorStr) {
+        if (!colorStr) return '';
+        try {
+            const el = document.createElement('div');
+            el.style.position = 'absolute';
+            el.style.left = '-9999px';
+            el.style.width = '1px';
+            el.style.height = '1px';
+            el.style.color = colorStr;
+            document.documentElement.appendChild(el);
+            const val = getComputedStyle(el).color || '';
+            el.remove();
+            return val.trim();
+        } catch (e) {
+            return colorStr;
+        }
+    }
+
+    // Initialize persistent settings
     Object.values(TOOLS).forEach(tool => {
         if (GM_getValue(tool.key) === undefined) {
             GM_setValue(tool.key, true);
@@ -81,6 +202,7 @@
 
     let menuIds = {};
 
+    // Menu command management
     function updateMenuCommands() {
         Object.values(menuIds).forEach(id => {
             try { if (id) GM_unregisterMenuCommand(id); } catch (e) { /* ignore */ }
@@ -150,6 +272,7 @@
         } catch (e) { /* ignore */ }
     }
 
+    // Initial run based on settings
     function isVisible(el) {
         if (!(el instanceof Element)) return false;
         const cs = getComputedStyle(el);
@@ -158,41 +281,16 @@
         return !!(el.offsetParent || r.width > 0 || r.height > 0);
     }
 
+    // Tool implementations
     function runImageAltOverlay(container) {
+        const toolKey = 'a11y_img';
         if (document.querySelector('.A11y-img-label')) return;
-
         container.querySelectorAll('img').forEach(function (img) {
-            const alt = img.alt ? img.alt.trim() : 'None';
+            const roleAttr = (img.getAttribute && (img.getAttribute('role') || '')).toString().toLowerCase();
+            const alt = roleAttr === 'presentation' ? '[Decorative]' : (img.alt ? img.alt.trim() : 'None');
 
-            const label = document.createElement('div');
-            label.className = 'AccessibilityHelper A11y-img-label';
-            label.textContent = 'Alt Text: ' + alt;
-            Object.assign(label.style, {
-                position: 'absolute',
-                background: '#FFF',
-                border: '3px solid #CCC',
-                borderRadius: '7px',
-                padding: '5px',
-                textAlign: 'left',
-                whiteSpace: 'pre-wrap',
-                fontSize: '12px',
-                width: '150px',
-                zIndex: '9999',
-                display: 'none',
-                color: 'black'
-            });
-
-            const border = document.createElement('div');
-            border.className = 'AccessibilityHelper A11y-img-border';
-            Object.assign(border.style, {
-                position: 'absolute',
-                border: '3px solid #CCC',
-                borderRadius: '7px',
-                zIndex: '9998',
-                display: 'none',
-                pointerEvents: 'none',
-                transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
-            });
+            const label = makeLabel(toolKey, 'A11y-img-label', 'Alt Text: ' + alt);
+            const border = makeBorder(toolKey, 'A11y-img-border');
 
             function updatePositions() {
                 const r = img.getBoundingClientRect();
@@ -225,30 +323,23 @@
                 label.style.boxShadow = 'none';
             }
 
-            [img, label].forEach(el => {
-                el.addEventListener('mouseover', highlight);
-                el.addEventListener('mouseout', unhighlight);
-            });
+            addListener(toolKey, img, 'mouseover', highlight);
+            addListener(toolKey, img, 'mouseout', unhighlight);
+            addListener(toolKey, label, 'mouseover', highlight);
+            addListener(toolKey, label, 'mouseout', unhighlight);
 
-            document.body.appendChild(label);
-            document.body.appendChild(border);
             updatePositions();
-            window.addEventListener('scroll', updatePositions);
-            window.addEventListener('resize', updatePositions);
-            new MutationObserver(updatePositions).observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['style', 'class', 'hidden', 'src']
-            });
+            attachAutoUpdate(toolKey, updatePositions, { attributeFilter: ['style', 'class', 'hidden', 'src', 'alt', 'role'] });
         });
     }
 
     function removeImageAltOverlay() {
+        cleanupTool('a11y_img');
         document.querySelectorAll('.A11y-img-label, .A11y-img-border').forEach(el => el.remove());
     }
 
     function runIframeLabelOverlay(container) {
+        const toolKey = 'a11y_iframe';
         if (document.querySelector('.A11y-iframe-label')) return;
 
         container.querySelectorAll('iframe').forEach(function (f) {
@@ -321,78 +412,43 @@
                 border.style.boxShadow = 'none';
             }
 
-            label.addEventListener('mouseover', highlight);
-            label.addEventListener('mouseout', unhighlight);
-            border.addEventListener('mouseover', highlight);
-            border.addEventListener('mouseout', unhighlight);
+            addListener(toolKey, label, 'mouseover', highlight);
+            addListener(toolKey, label, 'mouseout', unhighlight);
+            addListener(toolKey, border, 'mouseover', highlight);
+            addListener(toolKey, border, 'mouseout', unhighlight);
 
             document.body.appendChild(label);
             document.body.appendChild(border);
+            addContainer(toolKey, label);
+            addContainer(toolKey, border);
             update();
-            window.addEventListener('scroll', update);
-            window.addEventListener('resize', update);
-            new MutationObserver(update).observe(document.body, {
+            addListener(toolKey, window, 'scroll', update, { passive: true });
+            addListener(toolKey, window, 'resize', update);
+            const mo_iframe = new MutationObserver(update);
+            mo_iframe.observe(document.body, {
                 childList: true,
                 subtree: true,
                 attributes: true,
                 attributeFilter: ['style', 'class', 'open']
             });
+            addObserver(toolKey, mo_iframe);
         });
     }
 
     function removeIframeLabelOverlay() {
+        cleanupTool('a11y_iframe');
         document.querySelectorAll('.A11y-iframe-label, .A11y-iframe-border').forEach(el => el.remove());
     }
 
     function runHeadingTagOverlay(container) {
-        if (document.querySelector('.A11y-heading-label')) return;
+                const toolKey = 'a11y_heading';
+                if (document.querySelector('.A11y-heading-label')) return;
 
-        if (!document.getElementById('accessibility-helper-style')) {
-            const style = document.createElement('style');
-            style.id = 'accessibility-helper-style';
-            style.textContent = `
-        .AccessibilityHelper-label {
-          background: #FFF;
-          border: 3px solid #CCC;
-          border-radius: 4px;
-          padding: 2px 4px;
-          position: absolute;
-          white-space: nowrap;
-          font-size: 12px;
-          z-index: 10001;
-          color: black;
-          transition: all 0.2s ease;
-          display: none;
-        }
-        .AccessibilityHelper-border {
-          position: absolute;
-          border: 3px solid #CCC;
-          border-radius: 4px;
-          z-index: 9999;
-          pointer-events: none;
-          transition: all 0.2s ease;
-          display: none;
-        }
-        .AccessibilityHelper-highlight {
-          border-color: #393 !important;
-          box-shadow: 1px 2px 5px #CCC;
-        }
-      `;
-            document.head.appendChild(style);
-        }
-
-        document.querySelectorAll('.AccessibilityHelper-label,.AccessibilityHelper-border').forEach(e => e.remove());
+                document.querySelectorAll('.AccessibilityHelper-label,.AccessibilityHelper-border').forEach(e => e.remove());
 
         ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].flatMap(tag => [...container.querySelectorAll(tag)]).forEach(h => {
-            const label = document.createElement('div');
-            label.className = 'AccessibilityHelper AccessibilityHelper-label A11y-heading-label';
-            label.textContent = h.tagName;
-
-            const border = document.createElement('div');
-            border.className = 'AccessibilityHelper AccessibilityHelper-border A11y-heading-border';
-
-            document.body.appendChild(label);
-            document.body.appendChild(border);
+            const label = makeLabel(toolKey, 'AccessibilityHelper-label A11y-heading-label', h.tagName);
+            const border = makeBorder(toolKey, 'AccessibilityHelper-border A11y-heading-border');
 
             function update() {
                 const r = h.getBoundingClientRect();
@@ -423,28 +479,23 @@
                 border.classList.remove('AccessibilityHelper-highlight');
             }
 
-            label.addEventListener('mouseover', highlight);
-            label.addEventListener('mouseout', unhighlight);
-            h.addEventListener('mouseover', highlight);
-            h.addEventListener('mouseout', unhighlight);
+            addListener(toolKey, label, 'mouseover', highlight);
+            addListener(toolKey, label, 'mouseout', unhighlight);
+            addListener(toolKey, h, 'mouseover', highlight);
+            addListener(toolKey, h, 'mouseout', unhighlight);
 
             update();
-            window.addEventListener('scroll', update);
-            window.addEventListener('resize', update);
-            new MutationObserver(update).observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['style', 'class', 'hidden', 'open']
-            });
+            attachAutoUpdate(toolKey, update, { attributeFilter: ['style', 'class', 'hidden', 'open'] });
         });
     }
 
     function removeHeadingOverlay() {
+        cleanupTool('a11y_heading');
         document.querySelectorAll('.A11y-heading-label, .A11y-heading-border').forEach(el => el.remove());
     }
 
     function runIBTagOverlay(container) {
+        const toolKey = 'a11y_ib';
         let ibOverlayContainer = document.getElementById('IBOverlay-container');
         if (!ibOverlayContainer) {
             ibOverlayContainer = document.createElement('div');
@@ -459,46 +510,42 @@
                 zIndex: 9999
             });
             document.body.appendChild(ibOverlayContainer);
+            addContainer(toolKey, ibOverlayContainer);
         }
 
         if (document.querySelector('.A11y-ib-border')) return;
 
-        if (!document.getElementById('ib-overlay-style')) {
-            const style = document.createElement('style');
-            style.id = 'ib-overlay-style';
-            style.textContent = `
-    .IBOverlay-border {
-        position: absolute;
-        border: 2px solid red;
-        border-radius: 4px;
-        z-index: 9999;
-        pointer-events: none;
-        transition: all 0.2s ease;
-        display: none;
-    }
-    .IBOverlay-highlight {
-        border-color: #c00 !important;
-        box-shadow: 1px 2px 5px #f99;
-    }
-    `;
-            document.head.appendChild(style);
-        }
-
         document.querySelectorAll('.AccessibilityHelper-border.A11y-ib-border').forEach(e => e.remove());
 
-        container.querySelectorAll('i, b').forEach(el => {
-            const text = Array.from(el.childNodes)
-            .filter(node => node.nodeType === Node.TEXT_NODE)
-            .map(node => node.textContent.trim())
-            .join('');
-            if (!text) return;
+        function scanIB() {
+            document.querySelectorAll('.A11y-ib-border').forEach(b => b.remove());
 
-            const border = document.createElement('div');
-            border.className = 'AccessibilityHelper IBOverlay-border A11y-ib-border';
+            const nodes = Array.from(container.querySelectorAll('i, b'));
+            nodes.forEach(el => {
+                const text = Array.from(el.childNodes)
+                    .filter(node => node.nodeType === Node.TEXT_NODE)
+                    .map(node => node.textContent.trim())
+                    .join('');
+                if (!text) return;
 
-            ibOverlayContainer.appendChild(border);
+                const border = makeBorder(toolKey, 'IBOverlay-border A11y-ib-border');
+                ibOverlayContainer.appendChild(border);
+                border._a11yTarget = el;
 
-            function update() {
+                function highlight() { border.classList.add('IBOverlay-highlight'); }
+                function unhighlight() { border.classList.remove('IBOverlay-highlight'); }
+
+                addListener(toolKey, el, 'mouseover', highlight);
+                addListener(toolKey, el, 'mouseout', unhighlight);
+            });
+
+            updateAllIBBorders();
+        }
+
+        function updateAllIBBorders() {
+            document.querySelectorAll('.A11y-ib-border').forEach(border => {
+                const el = border._a11yTarget;
+                if (!el) return;
                 const r = el.getBoundingClientRect();
                 if (isVisible(el)) {
                     border.style.display = 'block';
@@ -513,43 +560,26 @@
                 } else {
                     border.style.display = 'none';
                 }
-            }
-
-            function highlight() {
-                border.classList.add('IBOverlay-highlight');
-            }
-            function unhighlight() {
-                border.classList.remove('IBOverlay-highlight');
-            }
-
-            el.addEventListener('mouseover', highlight);
-            el.addEventListener('mouseout', unhighlight);
-
-            update();
-            window.addEventListener('scroll', update);
-            window.addEventListener('resize', update);
-            const observer = new MutationObserver(mutations => {
-                const causedByOverlay = mutations.some(m =>
-                                                       m.target.closest('#IBOverlay-container')
-                                                      );
-                if (!causedByOverlay) update();
             });
+        }
 
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['style', 'class', 'hidden']
-            });
+        const debouncedScanIB = debounce(scanIB, 120);
+        addListener(toolKey, window, 'scroll', debounce(updateAllIBBorders, 60), { passive: true });
+        addListener(toolKey, window, 'resize', debounce(updateAllIBBorders, 60));
+        const sharedIBObserver = new MutationObserver(debouncedScanIB);
+        sharedIBObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+        addObserver(toolKey, sharedIBObserver);
 
-        });
+        scanIB();
     }
 
     function removeIBHighlights() {
+        cleanupTool('a11y_ib');
         document.querySelectorAll('.A11y-ib-border').forEach(el => el.remove());
     }
 
     function highlightContrastFailures(container = document.body) {
+        const toolKey = 'a11y_contrast';
         let contrastOverlayContainer = document.getElementById('ContrastOverlay-container');
         if (!contrastOverlayContainer) {
             contrastOverlayContainer = document.createElement('div');
@@ -564,108 +594,120 @@
                 zIndex: 9999
             });
             document.body.appendChild(contrastOverlayContainer);
+            addContainer(toolKey, contrastOverlayContainer);
         }
 
         if (document.querySelector('.ContrastOverlay-border')) return;
-
-        if (!document.getElementById('contrast-overlay-style')) {
-            const style = document.createElement('style');
-            style.id = 'contrast-overlay-style';
-            style.textContent = `
-        .ContrastOverlay-border {
-            position: absolute;
-            border: 2px solid blue;
-            border-radius: 4px;
-            z-index: 9999;
-            pointer-events: none;
-            transition: all 0.2s ease;
-            display: none;
-        }
-        .ContrastOverlay-highlight {
-            border-color: #339 !important;
-            box-shadow: 1px 2px 5px #99f;
-        }
-        `;
-            document.head.appendChild(style);
-        }
-
         document.querySelectorAll('.ContrastOverlay-border').forEach(e => e.remove());
 
-        container.querySelectorAll('*').forEach(el => {
-            const style = window.getComputedStyle(el);
-            const text = Array.from(el.childNodes)
-            .filter(node => node.nodeType === Node.TEXT_NODE)
-            .map(node => node.textContent.trim())
-            .join('');
+        const visited = new Set();
 
-            if (!text || style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0' || el.hidden) return;
+        function scanContrast() {
+            document.querySelectorAll('.ContrastOverlay-border').forEach(b => b.remove());
 
-            const color = getEffectiveColor(el, 'color');
-            const bg = getEffectiveBackground(el);
-            const ratio = contrastRatio(color, bg);
-
-            const fontSize = parseFloat(style.fontSize) || 0;
-            const fontWeight = parseInt(style.fontWeight, 10) || 400;
-            const isLargeText = fontSize >= 18 || (fontSize >= 14 && fontWeight >= 700);
-            const threshold = isLargeText ? 3.0 : 4.5;
-
-            if (ratio < threshold) {
-                const border = document.createElement('div');
-                border.className = 'AccessibilityHelper ContrastOverlay-border A11y-contrast-border';
-
-                contrastOverlayContainer.appendChild(border);
-
-                function update() {
-                    const r = el.getBoundingClientRect();
-                    if (isVisible(el)) {
-                        border.style.display = 'block';
-                        const top = Math.round(r.top - 4);
-                        const left = Math.round(r.left - 4);
-                        const width = Math.round(r.width + 8);
-                        const height = Math.round(r.height + 8);
-                        border.style.top = `${top}px`;
-                        border.style.left = `${left}px`;
-                        border.style.width = `${width}px`;
-                        border.style.height = `${height}px`;
-                    } else {
-                        border.style.display = 'none';
-                    }
+            const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+                acceptNode(node) {
+                    if (!node || !node.nodeValue) return NodeFilter.FILTER_REJECT;
+                    if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                    const p = node.parentElement;
+                    if (!p) return NodeFilter.FILTER_REJECT;
+                    if (visited.has(p)) return NodeFilter.FILTER_REJECT;
+                    const cs = getComputedStyle(p);
+                    if (cs.visibility === 'hidden' || cs.display === 'none' || cs.opacity === '0' || p.hidden) return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_ACCEPT;
                 }
+            }, false);
 
-                function highlight() {
-                    border.classList.add('ContrastOverlay-highlight');
+            visited.clear();
+            const toProcess = [];
+            while (walker.nextNode()) {
+                const p = walker.currentNode.parentElement;
+                if (p && !visited.has(p)) {
+                    visited.add(p);
+                    toProcess.push(p);
                 }
-
-                function unhighlight() {
-                    border.classList.remove('ContrastOverlay-highlight');
-                }
-
-                el.addEventListener('mouseover', highlight);
-                el.addEventListener('mouseout', unhighlight);
-
-                update();
-                window.addEventListener('scroll', update);
-                window.addEventListener('resize', update);
-                const observer = new MutationObserver(mutations => {
-                    const causedByOverlay = mutations.some(m => {
-                        return (
-                            m.target.classList?.contains('ContrastOverlay-border') ||
-                            m.target.closest('.ContrastOverlay-border')
-                        );
-                    });
-                    if (!causedByOverlay) {
-                        update();
-                    }
-                });
-
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true,
-                    attributeFilter: ['style', 'class', 'hidden']
-                });
             }
-        });
+
+            toProcess.forEach(el => {
+                const style = window.getComputedStyle(el);
+                const text = Array.from(el.childNodes)
+                    .filter(node => node.nodeType === Node.TEXT_NODE)
+                    .map(node => node.textContent.trim())
+                    .join('');
+
+                if (!text || style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0' || el.hidden) return;
+
+                const color = getEffectiveColor(el, 'color');
+                const bg = getEffectiveBackground(el);
+                const ratio = contrastRatio(color, bg);
+
+                const fontSize = parseFloat(style.fontSize) || 0;
+                const fontWeight = parseInt(style.fontWeight, 10) || 400;
+                const isLargeText = fontSize >= 18 || (fontSize >= 14 && fontWeight >= 700);
+                const threshold = isLargeText ? 3.0 : 4.5;
+
+                if (ratio < threshold) {
+                    const border = makeBorder(toolKey, 'ContrastOverlay-border A11y-contrast-border');
+                    contrastOverlayContainer.appendChild(border);
+                    border._a11yTarget = el;
+
+                    function update() {
+                        const r = el.getBoundingClientRect();
+                        if (isVisible(el)) {
+                            border.style.display = 'block';
+                            const top = Math.round(r.top - 4);
+                            const left = Math.round(r.left - 4);
+                            const width = Math.round(r.width + 8);
+                            const height = Math.round(r.height + 8);
+                            border.style.top = `${top}px`;
+                            border.style.left = `${left}px`;
+                            border.style.width = `${width}px`;
+                            border.style.height = `${height}px`;
+                        } else {
+                            border.style.display = 'none';
+                        }
+                    }
+
+                    function highlight() { border.classList.add('ContrastOverlay-highlight'); }
+                    function unhighlight() { border.classList.remove('ContrastOverlay-highlight'); }
+
+                    addListener(toolKey, el, 'mouseover', highlight);
+                    addListener(toolKey, el, 'mouseout', unhighlight);
+                }
+            });
+
+            updateAllBorders();
+        }
+
+        function updateAllBorders() {
+            document.querySelectorAll('.ContrastOverlay-border').forEach(border => {
+                const el = border._a11yTarget;
+                if (!el) return;
+                const r = el.getBoundingClientRect();
+                if (isVisible(el)) {
+                    border.style.display = 'block';
+                    const top = Math.round(r.top - 4);
+                    const left = Math.round(r.left - 4);
+                    const width = Math.round(r.width + 8);
+                    const height = Math.round(r.height + 8);
+                    border.style.top = `${top}px`;
+                    border.style.left = `${left}px`;
+                    border.style.width = `${width}px`;
+                    border.style.height = `${height}px`;
+                } else {
+                    border.style.display = 'none';
+                }
+            });
+        }
+
+        const debouncedScan = debounce(scanContrast, 120);
+        addListener(toolKey, window, 'scroll', debounce(updateAllBorders, 60), { passive: true });
+        addListener(toolKey, window, 'resize', debounce(updateAllBorders, 60));
+        const sharedObserver = new MutationObserver(debouncedScan);
+        sharedObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+        addObserver(toolKey, sharedObserver);
+
+        scanContrast();
 
         function contrastRatio(rgb1, rgb2) {
             const [r1, g1, b1] = (rgb1.match(/\d+/g) || [0,0,0]).map(Number);
@@ -684,17 +726,26 @@
         }
 
         function resolveColor(el, property) {
-            const style = getComputedStyle(el);
-            let value = style.getPropertyValue(property).trim();
-
-            const varMatch = value.match(/var\((--[^,)]+)/);
-            if (varMatch) {
-                const varName = varMatch[1];
-                const resolved = style.getPropertyValue(varName).trim();
-                if (resolved) return resolved;
+            let current = el;
+            while (current && current !== document.documentElement) {
+                try {
+                    const cs = getComputedStyle(current);
+                    let value = cs.getPropertyValue(property).trim();
+                    if (value && value !== 'transparent') {
+                        const normalized = normalizeColor(value);
+                        if (normalized) return normalized;
+                    }
+                } catch (e) {
+                    // ignore and continue walking up
+                }
+                current = current.parentElement;
             }
-
-            return value;
+            try {
+                const bodyVal = getComputedStyle(document.body).getPropertyValue(property).trim();
+                return normalizeColor(bodyVal);
+            } catch (e) {
+                return '';
+            }
         }
 
         function getEffectiveBackground(el) {
@@ -702,30 +753,32 @@
             while (current && current !== document.documentElement) {
                 const bg = window.getComputedStyle(current).backgroundColor;
                 if (bg && !bg.startsWith('rgba(0, 0, 0, 0)') && bg !== 'transparent') {
-                    return bg;
+                    return normalizeColor(bg);
                 }
                 current = current.parentElement;
             }
-            return window.getComputedStyle(document.body).backgroundColor || 'rgb(255,255,255)';
+            return normalizeColor(window.getComputedStyle(document.body).backgroundColor || 'rgb(255,255,255)');
         }
 
-        function getEffectiveColor(el) {
-            let current = el;
-            while (current && current !== document.documentElement) {
-                const color = resolveColor(current, 'color');
-                if (color && color !== 'rgb(39, 53, 64)' && color !== 'transparent') {
-                    return color;
+        function getEffectiveColor(el, property = 'color') {
+                let current = el;
+                while (current && current !== document.documentElement) {
+                    const color = resolveColor(current, property);
+                    if (color && color !== 'transparent') {
+                        return color;
+                    }
+                    current = current.parentElement;
                 }
-                current = current.parentElement;
-            }
-            return resolveColor(document.body, 'color');
+                return resolveColor(document.body, property) || 'rgb(0,0,0)';
         }
     }
 
     function removeContrastHighlights() {
+        cleanupTool('a11y_contrast');
         document.querySelectorAll('.ContrastOverlay-border').forEach(el => el.remove());
     }
 
+    // Auto-run on page load
     function waitForUserContent() {
         const observer = new MutationObserver((mutations, obs) => {
             const container = document.body;
@@ -747,6 +800,7 @@
         });
     }
 
+    // Start
     updateMenuCommands();
     if (shouldAutoRun) {
         waitForUserContent();
