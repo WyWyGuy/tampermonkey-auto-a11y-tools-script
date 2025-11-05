@@ -5,6 +5,7 @@
 // @description  Automatically run a11y tools
 // @author       Wyatt Nilsson (Original header, alt text, and iframe a11y tools are not mine)
 // @match        *://*/*
+// @match        file:///*
 // @icon         https://www.bookmarks.design//media/image/a11yproject.jpg
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
