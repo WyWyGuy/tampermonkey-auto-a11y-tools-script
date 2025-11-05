@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-04
+// @version      2025-11-05
 // @description  Automatically run a11y tools
 // @author       Wyatt Nilsson (Original header, alt text, and iframe a11y tools are not mine)
 // @match        *://*/*
@@ -287,7 +287,7 @@
         if (document.querySelector('.A11y-img-label')) return;
         container.querySelectorAll('img').forEach(function (img) {
             const roleAttr = (img.getAttribute && (img.getAttribute('role') || '')).toString().toLowerCase();
-            const alt = roleAttr === 'presentation' ? '[Decorative]' : (img.alt ? img.alt.trim() : 'None');
+            const alt = roleAttr === 'presentation' ? '[Decorative]' : (img.alt ? img.alt.trim() : '[Missing]');
 
             const label = makeLabel(toolKey, 'A11y-img-label', 'Alt Text: ' + alt);
             const border = makeBorder(toolKey, 'A11y-img-border');
