@@ -28,10 +28,14 @@
         'byuohs.instructure.com'
     ];
 
-    const excludedPath = /^https:\/\/byu\.instructure\.com\/courses\/1026(\/|$)/; // Exclude training course
+    const excludedPaths = [
+      /^https:\/\/byu\.instructure\.com\/courses\/1026(\/|$)/, // Training course
+      /^https:\/\/byu\.instructure\.com\/courses\/\d+\/modules$/, // Any course's modules page
+      /^https:\/\/byu\.instructure\.com\/courses\/\d+\/pages\/[^/]+\/edit$/ // Any course's page edit view
+    ];
     const currentHost = window.location.hostname;
     const isAutoRunDomain = autoRunDomains.includes(currentHost);
-    const isExcludedPage = excludedPath.test(window.location.href);
+    const isExcludedPage = excludedPaths.some(pattern => pattern.test(window.location.href));
     const shouldAutoRun = isAutoRunDomain && !isExcludedPage;
 
     let tempToolStates = {};
