@@ -372,9 +372,9 @@
             label.className = 'AccessibilityHelper A11y-iframe-label';
             label.style.cssText = 'position:absolute;background:#FFF;border:3px solid #CCC;border-radius:7px;padding:5px;text-align:left;white-space:pre-wrap;width:300px;font-size:12px;z-index:9999;transition:all 0.2s ease;display:none;';
 
-            const ariaLabelEmoji = ariaLabel !== '[Missing]' ? '✅' : '❌';
-            const ariaDescEmoji = ariaDesc !== '[Missing]' ? '✅' : '❌';
-            const titleEmoji = (title !== '[Missing]' && ariaLabel === '[Missing]' && ariaDesc === '[Missing]') ? '✅' : '❌';
+            const ariaLabelEmoji = ariaLabel !== '[Missing]' ? '🔊' : '🔇';
+            const ariaDescEmoji = ariaDesc !== '[Missing]' ? '🔊' : '🔇';
+            const titleEmoji = (title !== '[Missing]' && ariaLabel === '[Missing]' && ariaDesc === '[Missing]') ? '🔊' : '🔇';
 
             label.textContent =
                 `${ariaLabelEmoji}Aria-label: ${ariaLabel}${ariaLabelUsedFrom}\n` +
