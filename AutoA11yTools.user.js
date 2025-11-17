@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-12
+// @version      2025-11-17
 // @description  Automatically run a11y tools
 // @author       Wyatt Nilsson (Original header, alt text, and iframe a11y tools are not mine)
 // @match        *://*/*
@@ -29,9 +29,9 @@
     ];
 
     const excludedPaths = [
-      /^https:\/\/byu\.instructure\.com\/courses\/1026(\/|$)/, // Training course
-      /^https:\/\/byu\.instructure\.com\/courses\/\d+\/modules$/, // Any course's modules page
-      /^https:\/\/byu\.instructure\.com\/courses\/\d+\/pages\/[^/]+\/edit$/ // Any course's page edit view
+        /^https:\/\/byu\.instructure\.com\/courses\/1026(\/|$)/, // Training course
+        /^(https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses\/\d+\/modules)$/, // Any course's modules page
+        /^(https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses\/\d+\/pages\/[^/]+\/edit)$/ // Any course's page edit view
     ];
     const currentHost = window.location.hostname;
     const isAutoRunDomain = autoRunDomains.includes(currentHost);
@@ -446,10 +446,10 @@
     }
 
     function runHeadingTagOverlay(container) {
-                const toolKey = 'a11y_heading';
-                if (document.querySelector('.A11y-heading-label')) return;
+        const toolKey = 'a11y_heading';
+        if (document.querySelector('.A11y-heading-label')) return;
 
-                document.querySelectorAll('.AccessibilityHelper-label,.AccessibilityHelper-border').forEach(e => e.remove());
+        document.querySelectorAll('.AccessibilityHelper-label,.AccessibilityHelper-border').forEach(e => e.remove());
 
         ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].flatMap(tag => [...container.querySelectorAll(tag)]).forEach(h => {
             const label = makeLabel(toolKey, 'AccessibilityHelper-label A11y-heading-label', h.tagName);
@@ -528,9 +528,9 @@
             const nodes = Array.from(container.querySelectorAll('i, b'));
             nodes.forEach(el => {
                 const text = Array.from(el.childNodes)
-                    .filter(node => node.nodeType === Node.TEXT_NODE)
-                    .map(node => node.textContent.trim())
-                    .join('');
+                .filter(node => node.nodeType === Node.TEXT_NODE)
+                .map(node => node.textContent.trim())
+                .join('');
                 if (!text) return;
 
                 const border = makeBorder(toolKey, 'IBOverlay-border A11y-ib-border');
@@ -636,9 +636,9 @@
             toProcess.forEach(el => {
                 const style = window.getComputedStyle(el);
                 const text = Array.from(el.childNodes)
-                    .filter(node => node.nodeType === Node.TEXT_NODE)
-                    .map(node => node.textContent.trim())
-                    .join('');
+                .filter(node => node.nodeType === Node.TEXT_NODE)
+                .map(node => node.textContent.trim())
+                .join('');
 
                 if (!text || style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0' || el.hidden) return;
 
@@ -766,15 +766,15 @@
         }
 
         function getEffectiveColor(el, property = 'color') {
-                let current = el;
-                while (current && current !== document.documentElement) {
-                    const color = resolveColor(current, property);
-                    if (color && color !== 'transparent') {
-                        return color;
-                    }
-                    current = current.parentElement;
+            let current = el;
+            while (current && current !== document.documentElement) {
+                const color = resolveColor(current, property);
+                if (color && color !== 'transparent') {
+                    return color;
                 }
-                return resolveColor(document.body, property) || 'rgb(0,0,0)';
+                current = current.parentElement;
+            }
+            return resolveColor(document.body, property) || 'rgb(0,0,0)';
         }
     }
 
