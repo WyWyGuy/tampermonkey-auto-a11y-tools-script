@@ -31,7 +31,7 @@
     const excludedPaths = [
         /^https:\/\/byu\.instructure\.com\/courses\/1026(\/|$)/, // Training course
         /^(https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses\/\d+\/modules)$/, // Any course's modules page
-        /^(https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses\/\d+\/pages\/[^/]+\/edit)$/ // Any course's page edit view
+        /^(https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses\/\d+\/(pages|assignments|quizzes)\/[^/]+\/edit)$/ // Any course's edit view
     ];
     const currentHost = window.location.hostname;
     const isAutoRunDomain = autoRunDomains.includes(currentHost);
