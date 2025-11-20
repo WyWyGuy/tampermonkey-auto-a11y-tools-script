@@ -1,5 +1,7 @@
 # AutoA11yTools.user.js
 
+This tool provides many accessibility tools that automatically run on Canvas pages. It also saves your preferences depending on which ones you have activated or not. The tool is also usable on any web page, but won't run by default. The following tools are available:
+
 | Tool                       | Usage                                                                                        |
 |----------------------------|----------------------------------------------------------------------------------------------|
 |Activate All A11y Tools     | Activates all a11y tools.                                                                    |
