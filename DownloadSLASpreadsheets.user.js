@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Download SLA Spreadsheets
 // @namespace    http://tampermonkey.net/
-// @version      2025-09-18
+// @version      2025-11-20
 // @description  Automate downloading Excel spreadsheets from Teamwork
 // @author       Wyatt Nilsson
 // @match        https://byuis.teamwork.com/*
