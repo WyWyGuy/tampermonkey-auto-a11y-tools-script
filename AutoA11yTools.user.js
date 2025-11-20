@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-18
-// @description  Automatically run a11y tools
-// @author       Wyatt Nilsson (Original header, alt text, and iframe a11y tools are not mine)
+// @version      2025-11-20
+// @description  A set of accessibility tools to use for BYU's Accessibility Team
+// @author       Wyatt Nilsson
 // @match        *://*/*
 // @match        file:///*
 // @icon         https://www.bookmarks.design//media/image/a11yproject.jpg
@@ -44,7 +44,7 @@
     const TOOLS = {
         IMG: {
             id: "img",
-            label: "Image Alt Overlay",
+            label: "Image Alt Text",
             key: "a11y_img",
             run: runImageAltOverlay,
             remove: removeImageAltOverlay
@@ -65,17 +65,31 @@
         },
         CONTRAST: {
             id: "contrast",
-            label: "Contrast Highlights",
+            label: "Contrast Issues",
             key: "a11y_contrast",
             run: highlightContrastFailures,
             remove: removeContrastHighlights
         },
         IB: {
             id: "ib",
-            label: "<i>/<b> Highlights",
+            label: "<i>/<b> Usage",
             key: "a11y_ib",
             run: runIBTagOverlay,
             remove: removeIBHighlights
+        },
+        LANG: {
+            id: "lang",
+            label: "Lang Attributes",
+            key: "a11y_lang",
+            run: runLangOverlay,
+            remove: removeLangHighlights
+        },
+        TABLE: {
+            id: "table",
+            label: "Table Problems",
+            key: "a11y_table",
+            run: runTableOverlay,
+            remove: removeTableHighlights
         }
     };
 
@@ -277,13 +291,36 @@
         } catch (e) { /* ignore */ }
     }
 
-    // Initial run based on settings
+    // Helper functions
     function isVisible(el) {
         if (!(el instanceof Element)) return false;
         const cs = getComputedStyle(el);
         if (cs.display === 'none' || cs.visibility === 'hidden') return false;
         const r = el.getBoundingClientRect();
         return !!(el.offsetParent || r.width > 0 || r.height > 0);
+    }
+
+    function isVisuallyHidden(el) {
+        const style = getComputedStyle(el);
+        if (style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0' || el.hidden) {
+            return true;
+        }
+        const clip = style.clip || style.clipPath;
+        if (clip && (clip === 'rect(0 0 0 0)' || clip === 'rect(0px, 0px, 0px, 0px)' || clip === 'none')) {
+            return true;
+        }
+        const width = parseFloat(style.width);
+        const height = parseFloat(style.height);
+        if ((width <= 1 && height <= 1) && style.overflow === 'hidden') {
+            return true;
+        }
+        if (style.position === 'absolute') {
+            const rect = el.getBoundingClientRect();
+            if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= window.innerWidth || rect.top >= window.innerHeight) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Tool implementations
@@ -531,7 +568,7 @@
                 .filter(node => node.nodeType === Node.TEXT_NODE)
                 .map(node => node.textContent.trim())
                 .join('');
-                if (!text) return;
+                if (!text || isVisuallyHidden(el)) return;
 
                 const border = makeBorder(toolKey, 'IBOverlay-border A11y-ib-border');
                 ibOverlayContainer.appendChild(border);
@@ -640,7 +677,7 @@
                 .map(node => node.textContent.trim())
                 .join('');
 
-                if (!text || style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0' || el.hidden) return;
+                if (!text || isVisuallyHidden(el)) return;
 
                 const color = getEffectiveColor(el, 'color');
                 const bg = getEffectiveBackground(el);
@@ -781,6 +818,93 @@
     function removeContrastHighlights() {
         cleanupTool('a11y_contrast');
         document.querySelectorAll('.ContrastOverlay-border').forEach(el => el.remove());
+    }
+
+    function runLangOverlay(container) {
+
+    }
+
+    function removeLangHighlights() {
+
+    }
+
+    function runTableOverlay(container) {
+        const toolKey = 'a11y_table';
+        if (document.querySelector('.A11y-table-label')) return;
+
+        const cells = container.querySelectorAll('th, td');
+
+        cells.forEach(cell => {
+            const isTH = cell.tagName.toLowerCase() === 'th';
+            const hasScope = cell.hasAttribute('scope');
+            const rowspan = parseInt(cell.getAttribute('rowspan') || '1', 10);
+            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+
+            const needsScopeLabel = isTH && !hasScope;
+            const isMerged = rowspan > 1 || colspan > 1;
+
+            if (!needsScopeLabel && !isMerged) return;
+
+            let text = '';
+            if (needsScopeLabel) text += '[Missing scope attribute]';
+            if (isMerged) {
+                if (text) text += '\n';
+                text += `Merged cell: rowspan=${rowspan}, colspan=${colspan}`;
+            }
+
+            const label = makeLabel(toolKey, 'A11y-table-label', text);
+            const border = makeBorder(toolKey, 'A11y-table-border');
+
+            function updatePositions() {
+                const r = cell.getBoundingClientRect();
+                if (isVisible(cell)) {
+                    label.style.display = 'block';
+                    border.style.display = 'block';
+                    label.style.top = window.scrollY + r.top - label.offsetHeight - 8 + 'px';
+                    label.style.left = window.scrollX + r.left + 'px';
+                    border.style.top = window.scrollY + r.top - 6 + 'px';
+                    border.style.left = window.scrollX + r.left - 6 + 'px';
+                    border.style.width = r.width + 12 + 'px';
+                    border.style.height = r.height + 12 + 'px';
+                } else {
+                    label.style.display = 'none';
+                    border.style.display = 'none';
+                }
+            }
+
+            function highlight() {
+                border.style.borderColor = '#339';
+                border.style.boxShadow = '1px 2px 5px #99f';
+                label.style.borderColor = '#339';
+                label.style.boxShadow = '1px 2px 5px #99f';
+            }
+
+            function unhighlight() {
+                border.style.borderColor = '#CCC';
+                border.style.boxShadow = 'none';
+                label.style.borderColor = '#CCC';
+                label.style.boxShadow = 'none';
+            }
+
+            addListener(toolKey, cell, 'mouseover', highlight);
+            addListener(toolKey, cell, 'mouseout', unhighlight);
+            addListener(toolKey, label, 'mouseover', highlight);
+            addListener(toolKey, label, 'mouseout', unhighlight);
+
+            updatePositions();
+
+            attachAutoUpdate(toolKey, updatePositions, {
+                attributeFilter: [
+                    'style', 'class', 'hidden',
+                    'rowspan', 'colspan', 'scope'
+                ]
+            });
+        });
+    }
+
+    function removeTableHighlights() {
+        cleanupTool('a11y_table');
+        document.querySelectorAll('.A11y-table-label, .A11y-table-border').forEach(el => el.remove());
     }
 
     // Auto-run on page load
