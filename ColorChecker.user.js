@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Color Checker
 // @namespace    http://tampermonkey.net/
-// @version      2025-10-22
+// @version      2025-11-20
 // @description  Hover over any text to see its color contrast
 // @author       Wyatt Nilsson
 // @match        https://*/*
