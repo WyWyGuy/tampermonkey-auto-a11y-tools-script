@@ -47,7 +47,7 @@ function waitForElement(tagName, attributeName, attributeValue, timeout = 3000) 
         });
         setTimeout(() => {
             observer.disconnect();
-            reject(new Error(`Tampermonekey: Timeout: <${tagName}> with ${attributeName}="${attributeValue}" not found within ${timeout}ms`));
+            reject(new Error(`Tampermonkey: Timeout: <${tagName}> with ${attributeName}="${attributeValue}" not found within ${timeout}ms`));
         }, timeout);
     });
 }
