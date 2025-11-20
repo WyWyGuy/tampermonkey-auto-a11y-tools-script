@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         H5P Language Selector
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-19
+// @version      2025-11-20
 // @description  Scroll to a certain language in the H5P dropdown menu, or use ctrl + q to apply it automatically (robust version)
 // @author       Wyatt Nilsson
 // @match        https://byu.h5p.com/*
+// @icon         https://i0.wp.com/www.aufieroinformatica.com/wp-content/uploads/sites/7/2025/06/h5p_logo.png?fit=195%2C195&ssl=1
 // @grant        none
 // ==/UserScript==
 
