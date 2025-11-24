@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-20
+// @version      2025-11-24
 // @description  A set of accessibility tools to use for BYU's Accessibility Team
 // @author       Wyatt Nilsson
 // @match        *://*/*
@@ -145,6 +145,9 @@
       .IBOverlay-highlight { border-color: #c00 !important;box-shadow: 1px 2px 5px #f99 }
       .ContrastOverlay-border { position: absolute;border: 2px solid blue;border-radius: 4px;z-index: 9999;pointer-events: none;transition: all 0.2s ease;display: none }
       .ContrastOverlay-highlight { border-color: #339 !important;box-shadow: 1px 2px 5px #99f }
+      .A11y-table-label { position: absolute;background: #FFF;border: 3px solid #CCC;border-radius: 7px;padding: 5px;text-align: left;white-space: pre-wrap;font-size: 12px;width: 300px;z-index: 9999;color: black;display: none; }
+      .A11y-table-border { position: absolute;border: 3px solid #CCC;border-radius: 7px;z-index: 9998;pointer-events: none;display: none;transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+
     `;
         document.head.appendChild(style);
     }
@@ -229,8 +232,19 @@
 
         menuIds = {};
 
-        menuIds.activateAll = GM_registerMenuCommand('Activate All A11y Tools', () => {
+        menuIds.activateAll = GM_registerMenuCommand('✅Activate All A11y Tools', () => {
             const container = document.body;
+            Object.values(TOOLS).forEach(tool => {
+                if (GM_getValue(tool.key, false) || tempToolStates[tool.key]) {
+                    tool.remove(container);
+                }
+                if (shouldAutoRun) {
+                    GM_setValue(tool.key, false);
+                } else {
+                    tempToolStates[tool.key] = false;
+                }
+            });
+
             Object.values(TOOLS).forEach(tool => {
                 if (shouldAutoRun) {
                     GM_setValue(tool.key, true);
@@ -242,7 +256,7 @@
             updateMenuCommands();
         });
 
-        menuIds.removeAll = GM_registerMenuCommand('Remove All A11y Tools', () => {
+        menuIds.removeAll = GM_registerMenuCommand('❌Remove All A11y Tools', () => {
             Object.values(TOOLS).forEach(tool => {
                 if (shouldAutoRun) {
                     GM_setValue(tool.key, false);
@@ -260,7 +274,7 @@
             ? GM_getValue(tool.key, true)
             : tempToolStates[tool.key] ?? false;
 
-            menuIds[tool.id] = GM_registerMenuCommand(`${tool.label}: ${state ? 'ON' : 'OFF'}`, () => {
+            menuIds[tool.id] = GM_registerMenuCommand(`${state ? '🟩' : '⬜'}${tool.label}: ${state ? 'ON' : 'OFF'}`, () => {
                 toggleFeature(tool);
             });
         });
@@ -830,42 +844,30 @@
 
     function runTableOverlay(container) {
         const toolKey = 'a11y_table';
-        if (document.querySelector('.A11y-table-label')) return;
 
-        const cells = container.querySelectorAll('th, td');
+        if (container.querySelector('.A11y-table-label')) return;
 
-        cells.forEach(cell => {
-            const isTH = cell.tagName.toLowerCase() === 'th';
-            const hasScope = cell.hasAttribute('scope');
-            const rowspan = parseInt(cell.getAttribute('rowspan') || '1', 10);
-            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+        container.querySelectorAll('table').forEach(table => {
 
-            const needsScopeLabel = isTH && !hasScope;
-            const isMerged = rowspan > 1 || colspan > 1;
+            const issues = analyzeTableForA11yIssues(table);
+            if (issues.length === 0) return; // no problems, no overlay
 
-            if (!needsScopeLabel && !isMerged) return;
-
-            let text = '';
-            if (needsScopeLabel) text += '[Missing scope attribute]';
-            if (isMerged) {
-                if (text) text += '\n';
-                text += `Merged cell: rowspan=${rowspan}, colspan=${colspan}`;
-            }
-
-            const label = makeLabel(toolKey, 'A11y-table-label', text);
+            const label = makeLabel(toolKey, 'A11y-table-label', issues.join('\n'));
             const border = makeBorder(toolKey, 'A11y-table-border');
 
             function updatePositions() {
-                const r = cell.getBoundingClientRect();
-                if (isVisible(cell)) {
+                const r = table.getBoundingClientRect();
+                if (isVisible(table)) {
                     label.style.display = 'block';
                     border.style.display = 'block';
+
                     label.style.top = window.scrollY + r.top - label.offsetHeight - 8 + 'px';
                     label.style.left = window.scrollX + r.left + 'px';
-                    border.style.top = window.scrollY + r.top - 6 + 'px';
-                    border.style.left = window.scrollX + r.left - 6 + 'px';
-                    border.style.width = r.width + 12 + 'px';
-                    border.style.height = r.height + 12 + 'px';
+
+                    border.style.top = window.scrollY + r.top - 8 + 'px';
+                    border.style.left = window.scrollX + r.left - 8 + 'px';
+                    border.style.width = r.width + 16 + 'px';
+                    border.style.height = r.height + 16 + 'px';
                 } else {
                     label.style.display = 'none';
                     border.style.display = 'none';
@@ -873,10 +875,10 @@
             }
 
             function highlight() {
-                border.style.borderColor = '#339';
-                border.style.boxShadow = '1px 2px 5px #99f';
-                label.style.borderColor = '#339';
-                label.style.boxShadow = '1px 2px 5px #99f';
+                border.style.borderColor = '#393';
+                border.style.boxShadow = '1px 2px 5px #CCC';
+                label.style.borderColor = '#393';
+                label.style.boxShadow = '1px 2px 5px #CCC';
             }
 
             function unhighlight() {
@@ -886,20 +888,50 @@
                 label.style.boxShadow = 'none';
             }
 
-            addListener(toolKey, cell, 'mouseover', highlight);
-            addListener(toolKey, cell, 'mouseout', unhighlight);
+            addListener(toolKey, table, 'mouseover', highlight);
+            addListener(toolKey, table, 'mouseout', unhighlight);
             addListener(toolKey, label, 'mouseover', highlight);
             addListener(toolKey, label, 'mouseout', unhighlight);
 
             updatePositions();
 
             attachAutoUpdate(toolKey, updatePositions, {
-                attributeFilter: [
-                    'style', 'class', 'hidden',
-                    'rowspan', 'colspan', 'scope'
-                ]
+                attributeFilter: ['style', 'class', 'hidden']
             });
         });
+
+        function analyzeTableForA11yIssues(table) {
+            const issues = [];
+
+            const rows = Array.from(table.rows);
+
+            rows.forEach((row, rowIndex) => {
+                const cells = Array.from(row.cells);
+
+                cells.forEach((cell, colIndex) => {
+                    const rspan = parseInt(cell.getAttribute('rowspan') || "1", 10);
+                    const cspan = parseInt(cell.getAttribute('colspan') || "1", 10);
+
+                    // Detect merged cells
+                    if (rspan > 1) {
+                        issues.push(`Column ${colIndex + 1} contains a cell merged across ${rspan} rows`);
+                    }
+                    if (cspan > 1) {
+                        issues.push(`Row ${rowIndex + 1} contains a cell merged across ${cspan} columns`);
+                    }
+
+                    // Detect missing scope on header cells
+                    if (cell.tagName.toLowerCase() === 'th') {
+                        const scope = cell.getAttribute('scope');
+                        if (!scope) {
+                            issues.push(`Header cell in Row ${rowIndex + 1} is missing a scope attribute`);
+                        }
+                    }
+                });
+            });
+            return issues;
+        }
+
     }
 
     function removeTableHighlights() {
