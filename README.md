@@ -1,6 +1,6 @@
 # AutoA11yTools.user.js
 
-This tool provides many accessibility tools that automatically run on Canvas pages. It also saves your preferences depending on which ones you have activated or not. The tool is also usable on any web page, but won't run by default. The following tools are available:
+This script provides many accessibility tools that automatically run on Canvas pages. It also saves your preferences depending on which ones you have activated or not. The script is also usable on any web page, but won't run by default. The following tools are available:
 
 | Tool                       | Usage                                                                                        |
 |----------------------------|----------------------------------------------------------------------------------------------|
@@ -14,14 +14,16 @@ This tool provides many accessibility tools that automatically run on Canvas pag
 |Lang Attributes             | Highlights potential other languages that are missing a lang attribute.                      |
 |Table Problems              | Highlights tables that need scope attributes or have merged cells.                           |
 
+This script also uses extraWords.txt as part of the lang attributes checking.
+
 # ColorChecker.user.js
 
-This tool is a custom color contrast checker. Clicking it activates the checker, and then you can hover over text to see the contrast ratio and whether or not it passes the WCAG requirements. It also accounts for font size.
+This script is a custom color contrast checker tool. Clicking it activates the checker, and then you can hover over text to see the contrast ratio and whether or not it passes the WCAG requirements. It also accounts for font size.
 
 # H5PLanguageSelector.user.js
 
-This tool allows you to choose the language when editing an H5P quickly. Simply select the text you'd like to edit, then type Ctrl + q or click the language dropdown menu. It will select the language defined in the code near the top.
+This script allows you to choose the language when editing an H5P quickly. Simply select the text you'd like to edit, then type Ctrl + q or click the language dropdown menu. It will select the language defined in the code near the top.
 
 # DownloadSLASpreadsheets.user.js
 
-This tool automatically runs through four pre-named filters and downloads the Excel files for each filter in Teamwork. The filters are named "SLA - Prototypes", "SLA - 50% Reviews", "SLA - PSIAs", and "SLA - Peer Verifications".
+This script automatically runs through four pre-named filters and downloads the Excel files for each filter in Teamwork. The filters are named "SLA - Prototypes", "SLA - 50% Reviews", "SLA - PSIAs", and "SLA - Peer Verifications".
