@@ -11,8 +11,10 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_unregisterMenuCommand
+// @grant        GM_getResourceText
 // @updateURL    https://raw.githubusercontent.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/main/AutoA11yTools.user.js
 // @downloadURL  https://raw.githubusercontent.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/main/AutoA11yTools.user.js
+// @resource     EN_WORDS https://raw.githubusercontent.com/WyWyGuy/tampermonkey-a11y-tools/refs/heads/main/englishWords.txt
 // ==/UserScript==
 
 (function () {
@@ -147,7 +149,8 @@
       .ContrastOverlay-highlight { border-color: #339 !important;box-shadow: 1px 2px 5px #99f }
       .A11y-table-label { position: absolute;background: #FFF;border: 3px solid #CCC;border-radius: 7px;padding: 5px;text-align: left;white-space: pre-wrap;font-size: 12px;width: 300px;z-index: 9999;color: black;display: none; }
       .A11y-table-border { position: absolute;border: 3px solid #CCC;border-radius: 7px;z-index: 9998;pointer-events: none;display: none;transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-
+      .LangOverlay-border { position: absolute;border: 2px solid green;border-radius: 4px;z-index: 9999;pointer-events: none;transition: all 0.2s ease;display: none;box-shadow: 1px 2px 5px #afa; }
+      .LangOverlay-highlight { border-color: #2b2 !important;box-shadow: 1px 2px 6px #7f7; }
     `;
         document.head.appendChild(style);
     }
@@ -234,14 +237,14 @@
 
         menuIds.activateAll = GM_registerMenuCommand('✅Activate All A11y Tools', () => {
             const container = document.body;
+
             Object.values(TOOLS).forEach(tool => {
-                if (GM_getValue(tool.key, false) || tempToolStates[tool.key]) {
+                const isActive = shouldAutoRun
+                ? GM_getValue(tool.key, false)
+                : tempToolStates[tool.key] ?? false;
+
+                if (isActive) {
                     tool.remove(container);
-                }
-                if (shouldAutoRun) {
-                    GM_setValue(tool.key, false);
-                } else {
-                    tempToolStates[tool.key] = false;
                 }
             });
 
@@ -253,6 +256,7 @@
                 }
                 tool.run(container);
             });
+
             updateMenuCommands();
         });
 
@@ -340,53 +344,76 @@
     // Tool implementations
     function runImageAltOverlay(container) {
         const toolKey = 'a11y_img';
-        if (document.querySelector('.A11y-img-label')) return;
-        container.querySelectorAll('img').forEach(function (img) {
-            const roleAttr = (img.getAttribute && (img.getAttribute('role') || '')).toString().toLowerCase();
-            const alt = roleAttr === 'presentation' ? '[Decorative]' : (img.alt ? img.alt.trim() : '[Missing]');
 
-            const label = makeLabel(toolKey, 'A11y-img-label', 'Alt Text: ' + alt);
-            const border = makeBorder(toolKey, 'A11y-img-border');
-
-            function updatePositions() {
-                const r = img.getBoundingClientRect();
-                if (isVisible(img)) {
-                    label.style.display = 'block';
-                    border.style.display = 'block';
-                    label.style.top = window.scrollY + r.top - label.offsetHeight - 8 + 'px';
-                    label.style.left = window.scrollX + r.left + 'px';
-                    border.style.top = window.scrollY + r.top - 8 + 'px';
-                    border.style.left = window.scrollX + r.left - 8 + 'px';
-                    border.style.width = r.width + 16 + 'px';
-                    border.style.height = r.height + 16 + 'px';
-                } else {
-                    label.style.display = 'none';
-                    border.style.display = 'none';
-                }
-            }
-
-            function highlight() {
-                border.style.borderColor = '#393';
-                border.style.boxShadow = '1px 2px 5px #CCC';
-                label.style.borderColor = '#393';
-                label.style.boxShadow = '1px 2px 5px #CCC';
-            }
-
-            function unhighlight() {
-                border.style.borderColor = '#CCC';
-                border.style.boxShadow = 'none';
-                label.style.borderColor = '#CCC';
-                label.style.boxShadow = 'none';
-            }
-
-            addListener(toolKey, img, 'mouseover', highlight);
-            addListener(toolKey, img, 'mouseout', unhighlight);
-            addListener(toolKey, label, 'mouseover', highlight);
-            addListener(toolKey, label, 'mouseout', unhighlight);
-
-            updatePositions();
-            attachAutoUpdate(toolKey, updatePositions, { attributeFilter: ['style', 'class', 'hidden', 'src', 'alt', 'role'] });
+        document.querySelectorAll('img').forEach(img => {
+            delete img._a11yImgProcessed;
         });
+
+        function scanImages() {
+            container.querySelectorAll('img').forEach(function (img) {
+                if (img._a11yImgProcessed) return;
+                img._a11yImgProcessed = true;
+
+                const roleAttr = (img.getAttribute && (img.getAttribute('role') || '')).toString().toLowerCase();
+                const alt = roleAttr === 'presentation' ? '[Decorative]' : (img.alt ? img.alt.trim() : '[Missing]');
+
+                const label = makeLabel(toolKey, 'A11y-img-label', 'Alt Text: ' + alt);
+                const border = makeBorder(toolKey, 'A11y-img-border');
+
+                function updatePositions() {
+                    const r = img.getBoundingClientRect();
+                    if (isVisible(img)) {
+                        label.style.display = 'block';
+                        border.style.display = 'block';
+                        label.style.top = window.scrollY + r.top - label.offsetHeight - 8 + 'px';
+                        label.style.left = window.scrollX + r.left + 'px';
+                        border.style.top = window.scrollY + r.top - 8 + 'px';
+                        border.style.left = window.scrollX + r.left - 8 + 'px';
+                        border.style.width = r.width + 16 + 'px';
+                        border.style.height = r.height + 16 + 'px';
+                    } else {
+                        label.style.display = 'none';
+                        border.style.display = 'none';
+                    }
+                }
+
+                function highlight() {
+                    border.style.borderColor = '#393';
+                    border.style.boxShadow = '1px 2px 5px #CCC';
+                    label.style.borderColor = '#393';
+                    label.style.boxShadow = '1px 2px 5px #CCC';
+                }
+
+                function unhighlight() {
+                    border.style.borderColor = '#CCC';
+                    border.style.boxShadow = 'none';
+                    label.style.borderColor = '#CCC';
+                    label.style.boxShadow = 'none';
+                }
+
+                addListener(toolKey, img, 'mouseover', highlight);
+                addListener(toolKey, img, 'mouseout', unhighlight);
+                addListener(toolKey, label, 'mouseover', highlight);
+                addListener(toolKey, label, 'mouseout', unhighlight);
+
+                updatePositions();
+                attachAutoUpdate(toolKey, updatePositions, { attributeFilter: ['style', 'class', 'hidden', 'src', 'alt', 'role'] });
+            });
+        }
+
+        const debouncedScan = debounce(scanImages, 120);
+        const observer = new MutationObserver((mutations) => {
+            debouncedScan();
+        });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['src', 'alt', 'role']
+        });
+        addObserver(toolKey, observer);
+
+        scanImages();
     }
 
     function removeImageAltOverlay() {
@@ -396,99 +423,117 @@
 
     function runIframeLabelOverlay(container) {
         const toolKey = 'a11y_iframe';
-        if (document.querySelector('.A11y-iframe-label')) return;
+        const processedIframes = new Set();
 
-        container.querySelectorAll('iframe').forEach(function (f) {
+        function scanIframes() {
+            container.querySelectorAll('iframe').forEach(function (f) {
+                if (processedIframes.has(f)) return;
+                processedIframes.add(f);
 
-            let title = f.title || '[Missing]';
-            let ariaLabel = f.getAttribute('aria-label');
-            let ariaLabelUsedFrom = '';
-            if (!ariaLabel && f.hasAttribute('aria-labelledby')) {
-                const ids = f.getAttribute('aria-labelledby').split(' ');
-                ariaLabel = ids.map(id => document.getElementById(id)?.textContent || '[Missing]').join(', ');
-                ariaLabelUsedFrom = ' (uses labelledby)';
-            }
-            if (!ariaLabel) ariaLabel = '[Missing]';
-
-            let ariaDesc = f.getAttribute('aria-description');
-            let ariaDescUsedFrom = '';
-            if (!ariaDesc && f.hasAttribute('aria-describedby')) {
-                const ids = f.getAttribute('aria-describedby').split(' ');
-                ariaDesc = ids.map(id => document.getElementById(id)?.textContent || '[Missing]').join(', ');
-                ariaDescUsedFrom = ' (uses describedby)';
-            }
-            if (!ariaDesc) ariaDesc = '[Missing]';
-
-            const label = document.createElement('div');
-            label.className = 'AccessibilityHelper A11y-iframe-label';
-            label.style.cssText = 'position:absolute;background:#FFF;border:3px solid #CCC;border-radius:7px;padding:5px;text-align:left;white-space:pre-wrap;width:300px;font-size:12px;z-index:9999;transition:all 0.2s ease;display:none;';
-
-            const ariaLabelEmoji = ariaLabel !== '[Missing]' ? '🔊' : '🔇';
-            const ariaDescEmoji = ariaDesc !== '[Missing]' ? '🔊' : '🔇';
-            const titleEmoji = (title !== '[Missing]' && ariaLabel === '[Missing]' && ariaDesc === '[Missing]') ? '🔊' : '🔇';
-
-            label.textContent =
-                `${ariaLabelEmoji}Aria-label: ${ariaLabel}${ariaLabelUsedFrom}\n` +
-                `${ariaDescEmoji}Aria-description: ${ariaDesc}${ariaDescUsedFrom}\n` +
-                `${titleEmoji}Title: ${title}`;
-
-
-
-            const border = document.createElement('span');
-            border.className = 'AccessibilityHelper A11y-iframe-border';
-            border.style.cssText = 'position:absolute;border:3px solid #CCC;border-radius:7px;z-index:9998;transition:all 0.2s ease;display:none;pointer-events:none;';
-
-            function update() {
-                const r = f.getBoundingClientRect();
-                if (isVisible(f)) {
-                    label.style.display = 'block';
-                    border.style.display = 'block';
-                    label.style.top = window.scrollY + r.top - 8 + 'px';
-                    label.style.left = window.scrollX + r.left - 8 + 'px';
-                    border.style.top = window.scrollY + r.top - 8 + 'px';
-                    border.style.left = window.scrollX + r.left - 8 + 'px';
-                    border.style.width = r.width + 16 + 'px';
-                    border.style.height = r.height + 16 + 'px';
-                } else {
-                    label.style.display = 'none';
-                    border.style.display = 'none';
+                let title = f.title || '[Missing]';
+                let ariaLabel = f.getAttribute('aria-label');
+                let ariaLabelUsedFrom = '';
+                if (!ariaLabel && f.hasAttribute('aria-labelledby')) {
+                    const ids = f.getAttribute('aria-labelledby').split(' ');
+                    ariaLabel = ids.map(id => document.getElementById(id)?.textContent || '[Missing]').join(', ');
+                    ariaLabelUsedFrom = ' (uses labelledby)';
                 }
-            }
+                if (!ariaLabel) ariaLabel = '[Missing]';
 
-            function highlight() {
-                label.style.borderColor = '#393';
-                label.style.boxShadow = '1px 2px 5px #CCC';
-                border.style.borderColor = '#393';
-                border.style.boxShadow = '1px 2px 5px #CCC';
-            }
-            function unhighlight() {
-                label.style.borderColor = '#CCC';
-                label.style.boxShadow = 'none';
-                border.style.borderColor = '#CCC';
-                border.style.boxShadow = 'none';
-            }
+                let ariaDesc = f.getAttribute('aria-description');
+                let ariaDescUsedFrom = '';
+                if (!ariaDesc && f.hasAttribute('aria-describedby')) {
+                    const ids = f.getAttribute('aria-describedby').split(' ');
+                    ariaDesc = ids.map(id => document.getElementById(id)?.textContent || '[Missing]').join(', ');
+                    ariaDescUsedFrom = ' (uses describedby)';
+                }
+                if (!ariaDesc) ariaDesc = '[Missing]';
 
-            addListener(toolKey, label, 'mouseover', highlight);
-            addListener(toolKey, label, 'mouseout', unhighlight);
-            addListener(toolKey, border, 'mouseover', highlight);
-            addListener(toolKey, border, 'mouseout', unhighlight);
+                const label = document.createElement('div');
+                label.className = 'AccessibilityHelper A11y-iframe-label';
+                label.style.cssText = 'position:absolute;background:#FFF;border:3px solid #CCC;border-radius:7px;padding:5px;text-align:left;white-space:pre-wrap;width:300px;font-size:12px;z-index:9999;transition:all 0.2s ease;display:none;';
 
-            document.body.appendChild(label);
-            document.body.appendChild(border);
-            addContainer(toolKey, label);
-            addContainer(toolKey, border);
-            update();
-            addListener(toolKey, window, 'scroll', update, { passive: true });
-            addListener(toolKey, window, 'resize', update);
-            const mo_iframe = new MutationObserver(update);
-            mo_iframe.observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['style', 'class', 'open']
+                const ariaLabelEmoji = ariaLabel !== '[Missing]' ? '🔊' : '🔇';
+                const ariaDescEmoji = ariaDesc !== '[Missing]' ? '🔊' : '🔇';
+                const titleEmoji = (title !== '[Missing]' && ariaLabel === '[Missing]' && ariaDesc === '[Missing]') ? '🔊' : '🔇';
+
+                label.textContent =
+                    `${ariaLabelEmoji}Aria-label: ${ariaLabel}${ariaLabelUsedFrom}\n` +
+                    `${ariaDescEmoji}Aria-description: ${ariaDesc}${ariaDescUsedFrom}\n` +
+                    `${titleEmoji}Title: ${title}`;
+
+
+
+                const border = document.createElement('span');
+                border.className = 'AccessibilityHelper A11y-iframe-border';
+                border.style.cssText = 'position:absolute;border:3px solid #CCC;border-radius:7px;z-index:9998;transition:all 0.2s ease;display:none;pointer-events:none;';
+
+                function update() {
+                    const r = f.getBoundingClientRect();
+                    if (isVisible(f)) {
+                        label.style.display = 'block';
+                        border.style.display = 'block';
+                        label.style.top = window.scrollY + r.top - 8 + 'px';
+                        label.style.left = window.scrollX + r.left - 8 + 'px';
+                        border.style.top = window.scrollY + r.top - 8 + 'px';
+                        border.style.left = window.scrollX + r.left - 8 + 'px';
+                        border.style.width = r.width + 16 + 'px';
+                        border.style.height = r.height + 16 + 'px';
+                    } else {
+                        label.style.display = 'none';
+                        border.style.display = 'none';
+                    }
+                }
+
+                function highlight() {
+                    label.style.borderColor = '#393';
+                    label.style.boxShadow = '1px 2px 5px #CCC';
+                    border.style.borderColor = '#393';
+                    border.style.boxShadow = '1px 2px 5px #CCC';
+                }
+                function unhighlight() {
+                    label.style.borderColor = '#CCC';
+                    label.style.boxShadow = 'none';
+                    border.style.borderColor = '#CCC';
+                    border.style.boxShadow = 'none';
+                }
+
+                addListener(toolKey, label, 'mouseover', highlight);
+                addListener(toolKey, label, 'mouseout', unhighlight);
+                addListener(toolKey, border, 'mouseover', highlight);
+                addListener(toolKey, border, 'mouseout', unhighlight);
+
+                document.body.appendChild(label);
+                document.body.appendChild(border);
+                addContainer(toolKey, label);
+                addContainer(toolKey, border);
+                update();
+                addListener(toolKey, window, 'scroll', update, { passive: true });
+                addListener(toolKey, window, 'resize', update);
+                const mo_iframe = new MutationObserver(update);
+                mo_iframe.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['style', 'class', 'open']
+                });
+                addObserver(toolKey, mo_iframe);
             });
-            addObserver(toolKey, mo_iframe);
+        }
+
+        const debouncedScan = debounce(scanIframes, 120);
+        const observer = new MutationObserver((mutations) => {
+            debouncedScan();
         });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['title', 'aria-label', 'aria-description']
+        });
+        addObserver(toolKey, observer);
+
+        scanIframes();
     }
 
     function removeIframeLabelOverlay() {
@@ -498,51 +543,66 @@
 
     function runHeadingTagOverlay(container) {
         const toolKey = 'a11y_heading';
-        if (document.querySelector('.A11y-heading-label')) return;
+        const processedHeadings = new Set();
 
-        document.querySelectorAll('.AccessibilityHelper-label,.AccessibilityHelper-border').forEach(e => e.remove());
+        function scanHeadings() {
+            ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].flatMap(tag => [...container.querySelectorAll(tag)]).forEach(h => {
+                if (processedHeadings.has(h)) return;
+                processedHeadings.add(h);
 
-        ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].flatMap(tag => [...container.querySelectorAll(tag)]).forEach(h => {
-            const label = makeLabel(toolKey, 'AccessibilityHelper-label A11y-heading-label', h.tagName);
-            const border = makeBorder(toolKey, 'AccessibilityHelper-border A11y-heading-border');
+                const label = makeLabel(toolKey, 'AccessibilityHelper-label A11y-heading-label', h.tagName);
+                const border = makeBorder(toolKey, 'AccessibilityHelper-border A11y-heading-border');
 
-            function update() {
-                const r = h.getBoundingClientRect();
-                if (isVisible(h)) {
-                    label.style.display = 'block';
-                    border.style.display = 'block';
-                    const top = window.scrollY + r.top;
-                    const left = window.scrollX + r.left;
-                    label.style.top = top - 22 + 'px';
-                    label.style.left = left + 'px';
-                    border.style.top = top + 'px';
-                    border.style.left = left + 'px';
-                    border.style.width = r.width + 'px';
-                    border.style.height = r.height + 'px';
-                } else {
-                    label.style.display = 'none';
-                    border.style.display = 'none';
+                function update() {
+                    const r = h.getBoundingClientRect();
+                    if (isVisible(h)) {
+                        label.style.display = 'block';
+                        border.style.display = 'block';
+                        const top = window.scrollY + r.top;
+                        const left = window.scrollX + r.left;
+                        label.style.top = top - 22 + 'px';
+                        label.style.left = left + 'px';
+                        border.style.top = top + 'px';
+                        border.style.left = left + 'px';
+                        border.style.width = r.width + 'px';
+                        border.style.height = r.height + 'px';
+                    } else {
+                        label.style.display = 'none';
+                        border.style.display = 'none';
+                    }
                 }
-            }
 
-            function highlight() {
-                label.classList.add('AccessibilityHelper-highlight');
-                border.classList.add('AccessibilityHelper-highlight');
-            }
+                function highlight() {
+                    label.classList.add('AccessibilityHelper-highlight');
+                    border.classList.add('AccessibilityHelper-highlight');
+                }
 
-            function unhighlight() {
-                label.classList.remove('AccessibilityHelper-highlight');
-                border.classList.remove('AccessibilityHelper-highlight');
-            }
+                function unhighlight() {
+                    label.classList.remove('AccessibilityHelper-highlight');
+                    border.classList.remove('AccessibilityHelper-highlight');
+                }
 
-            addListener(toolKey, label, 'mouseover', highlight);
-            addListener(toolKey, label, 'mouseout', unhighlight);
-            addListener(toolKey, h, 'mouseover', highlight);
-            addListener(toolKey, h, 'mouseout', unhighlight);
+                addListener(toolKey, label, 'mouseover', highlight);
+                addListener(toolKey, label, 'mouseout', unhighlight);
+                addListener(toolKey, h, 'mouseover', highlight);
+                addListener(toolKey, h, 'mouseout', unhighlight);
 
-            update();
-            attachAutoUpdate(toolKey, update, { attributeFilter: ['style', 'class', 'hidden', 'open'] });
+                update();
+                attachAutoUpdate(toolKey, update, { attributeFilter: ['style', 'class', 'hidden', 'open'] });
+            });
+        }
+
+        const debouncedScan = debounce(scanHeadings, 120);
+        const observer = new MutationObserver((mutations) => {
+            debouncedScan();
         });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        addObserver(toolKey, observer);
+
+        scanHeadings();
     }
 
     function removeHeadingOverlay() {
@@ -552,6 +612,9 @@
 
     function runIBTagOverlay(container) {
         const toolKey = 'a11y_ib';
+
+        if (document.querySelector('.A11y-ib-border')) return;
+
         let ibOverlayContainer = document.getElementById('IBOverlay-container');
         if (!ibOverlayContainer) {
             ibOverlayContainer = document.createElement('div');
@@ -567,14 +630,10 @@
             });
             document.body.appendChild(ibOverlayContainer);
             addContainer(toolKey, ibOverlayContainer);
+            document.querySelectorAll('.AccessibilityHelper-border.A11y-ib-border').forEach(e => e.remove());
         }
 
-        if (document.querySelector('.A11y-ib-border')) return;
-
-        document.querySelectorAll('.AccessibilityHelper-border.A11y-ib-border').forEach(e => e.remove());
-
         function scanIB() {
-            document.querySelectorAll('.A11y-ib-border').forEach(b => b.remove());
 
             const nodes = Array.from(container.querySelectorAll('i, b'));
             nodes.forEach(el => {
@@ -601,7 +660,14 @@
         function updateAllIBBorders() {
             document.querySelectorAll('.A11y-ib-border').forEach(border => {
                 const el = border._a11yTarget;
-                if (!el) return;
+                if (!el) {
+                    border.remove();
+                    return;
+                }
+                if (!document.contains(el)) {
+                    border.remove();
+                    return;
+                }
                 const r = el.getBoundingClientRect();
                 if (isVisible(el)) {
                     border.style.display = 'block';
@@ -631,10 +697,11 @@
 
     function removeIBHighlights() {
         cleanupTool('a11y_ib');
-        document.querySelectorAll('.A11y-ib-border').forEach(el => el.remove());
+        const borders = document.querySelectorAll('.A11y-ib-border');
+        borders.forEach(el => el.remove());
     }
 
-    function highlightContrastFailures(container = document.body) {
+    function highlightContrastFailures(container) {
         const toolKey = 'a11y_contrast';
         let contrastOverlayContainer = document.getElementById('ContrastOverlay-container');
         if (!contrastOverlayContainer) {
@@ -652,9 +719,6 @@
             document.body.appendChild(contrastOverlayContainer);
             addContainer(toolKey, contrastOverlayContainer);
         }
-
-        if (document.querySelector('.ContrastOverlay-border')) return;
-        document.querySelectorAll('.ContrastOverlay-border').forEach(e => e.remove());
 
         const visited = new Set();
 
@@ -705,7 +769,8 @@
                 if (ratio < threshold) {
                     const border = makeBorder(toolKey, 'ContrastOverlay-border A11y-contrast-border');
                     contrastOverlayContainer.appendChild(border);
-                    border._a11yTarget = el;
+                    border._a11yTarget = el;console.log(el);console.log('Contrast check for', el, 'color:', color, 'background:', bg, 'ratio:', ratio);
+
 
                     function update() {
                         const r = el.getBoundingClientRect();
@@ -740,6 +805,7 @@
                 const el = border._a11yTarget;
                 if (!el) return;
                 const r = el.getBoundingClientRect();
+                console.log("UPDATING BORDERS");
                 if (isVisible(el)) {
                     border.style.display = 'block';
                     const top = Math.round(r.top - 4);
@@ -791,9 +857,7 @@
                         const normalized = normalizeColor(value);
                         if (normalized) return normalized;
                     }
-                } catch (e) {
-                    // ignore and continue walking up
-                }
+                } catch (e) { /* ignore */ }
                 current = current.parentElement;
             }
             try {
@@ -835,70 +899,247 @@
     }
 
     function runLangOverlay(container) {
+        const toolKey = 'a11y_lang';
 
+        ensureToolResources(toolKey);
+        const toolData = toolResources.get(toolKey);
+
+        let overlayContainer = document.getElementById('LangOverlay-container');
+
+        if (!overlayContainer) {
+            overlayContainer = document.createElement('div');
+            overlayContainer.id = 'LangOverlay-container';
+            Object.assign(overlayContainer.style, {
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                zIndex: 9999
+            });
+            document.body.appendChild(overlayContainer);
+            addContainer(toolKey, overlayContainer);
+        }
+
+        if (!toolData.processedLangMatches) {
+            toolData.processedLangMatches = new Set();
+        } else {
+            document.querySelectorAll('.A11y-lang-border').forEach(el => el.remove());
+            toolData.processedLangMatches.clear();
+        }
+        const processedLangMatches = toolData.processedLangMatches;
+
+        const dictText = GM_getResourceText('EN_WORDS');
+
+        const englishWords = new Set(
+            dictText
+            .split("\n")
+            .map(w => w.trim().toLowerCase())
+            .filter(Boolean)
+        );
+
+        function getNearestLang(node) {
+            while (node && node.nodeType === Node.ELEMENT_NODE) {
+                if (node.hasAttribute('lang')) return node.getAttribute('lang').toLowerCase();
+                node = node.parentElement;
+            }
+            return null;
+        }
+
+        function scanLang() {
+            const walker = document.createTreeWalker(
+                container,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode(node) {
+                        if (!node.textContent.trim()) return NodeFilter.FILTER_REJECT;
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            );
+
+            let textNode;
+            while ((textNode = walker.nextNode())) {
+                const text = textNode.textContent;
+                let charIndex = 0;
+
+                const words = text.split(/\b/);
+
+                words.forEach(word => {
+                    const cleanWord = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
+                    const nearestLang = getNearestLang(textNode.parentElement);
+
+                    if (cleanWord && !englishWords.has(cleanWord) && (!nearestLang || nearestLang === 'en')) {
+
+                        const matchKey = `${textNode.__a11yId || (textNode.__a11yId = Math.random())}:${charIndex}`;
+                        if (!processedLangMatches.has(matchKey)) {
+                            const range = document.createRange();
+                            range.setStart(textNode, charIndex);
+                            range.setEnd(textNode, charIndex + word.length);
+
+                            const rect = range.getBoundingClientRect();
+                            range.detach();
+
+                            if (rect.width > 0 && rect.height > 0 && isVisible(textNode.parentElement)) {
+                                const border = makeBorder(toolKey, 'LangOverlay-border A11y-lang-border');
+                                overlayContainer.appendChild(border);
+                                processedLangMatches.add(matchKey);
+
+                                Object.assign(border.style, {
+                                    display: 'block',
+                                    top: `${Math.round(rect.top - 3)}px`,
+                                    left: `${Math.round(rect.left - 3)}px`,
+                                    width: `${Math.round(rect.width + 6)}px`,
+                                    height: `${Math.round(rect.height + 6)}px`
+                                });
+
+                                border._a11yTarget = textNode.parentElement;
+                                border._a11yTextNode = textNode;
+                                border._a11yMatchIndex = charIndex;
+                                border._a11yMatchLength = word.length;
+
+                                function highlight() { border.classList.add('LangOverlay-highlight'); }
+                                function unhighlight() { border.classList.remove('LangOverlay-highlight'); }
+
+                                addListener(toolKey, textNode.parentElement, 'mouseover', highlight);
+                                addListener(toolKey, textNode.parentElement, 'mouseout', unhighlight);
+                            }
+                        }
+                    }
+
+                    charIndex += word.length;
+                });
+            }
+        }
+
+        function updateLangBorderPositions() {
+            document.querySelectorAll('.A11y-lang-border').forEach(border => {
+                const textNode = border._a11yTextNode;
+                const charIndex = border._a11yMatchIndex;
+
+                if (!textNode || !document.contains(textNode)) {
+                    border.remove();
+                    return;
+                }
+
+                const parentElement = textNode.parentElement;
+                if (!isVisible(parentElement)) {
+                    border.style.display = 'none';
+                    return;
+                }
+
+                const text = textNode.textContent;
+                const range = document.createRange();
+                range.setStart(textNode, charIndex);
+                range.setEnd(textNode, charIndex + border._a11yMatchLength);
+                const rect = range.getBoundingClientRect();
+                range.detach();
+
+                if (rect.width > 0 && rect.height > 0) {
+                    border.style.display = 'block';
+                    border.style.top = `${Math.round(rect.top - 3)}px`;
+                    border.style.left = `${Math.round(rect.left - 3)}px`;
+                    border.style.width = `${Math.round(rect.width + 6)}px`;
+                    border.style.height = `${Math.round(rect.height + 6)}px`;
+                } else {
+                    border.style.display = 'none';
+                }
+            });
+        }
+
+        const debouncedScan = debounce(scanLang, 50);
+        const debouncedUpdatePositions = debounce(updateLangBorderPositions, 60);
+
+        addListener(toolKey, window, 'scroll', debouncedUpdatePositions, { passive: true });
+        addListener(toolKey, window, 'resize', debouncedUpdatePositions);
+
+        const observer = new MutationObserver(debouncedScan);
+        observer.observe(document.body, { childList: true, subtree: true });
+        addObserver(toolKey, observer);
+
+        scanLang();
     }
 
     function removeLangHighlights() {
-
+        cleanupTool('a11y_lang');
+        const borders = document.querySelectorAll('.A11y-lang-border');
+        borders.forEach(el => el.remove());
     }
 
     function runTableOverlay(container) {
         const toolKey = 'a11y_table';
+        const processedTables = new Set();
 
-        if (container.querySelector('.A11y-table-label')) return;
+        function scanTables() {
+            container.querySelectorAll('table').forEach(table => {
+                if (processedTables.has(table)) return;
 
-        container.querySelectorAll('table').forEach(table => {
+                const issues = analyzeTableForA11yIssues(table);
+                if (issues.length === 0) return;
 
-            const issues = analyzeTableForA11yIssues(table);
-            if (issues.length === 0) return; // no problems, no overlay
+                processedTables.add(table);
 
-            const label = makeLabel(toolKey, 'A11y-table-label', issues.join('\n'));
-            const border = makeBorder(toolKey, 'A11y-table-border');
+                const label = makeLabel(toolKey, 'A11y-table-label', issues.join('\n'));
+                const border = makeBorder(toolKey, 'A11y-table-border');
 
-            function updatePositions() {
-                const r = table.getBoundingClientRect();
-                if (isVisible(table)) {
-                    label.style.display = 'block';
-                    border.style.display = 'block';
+                function updatePositions() {
+                    const r = table.getBoundingClientRect();
+                    if (isVisible(table)) {
+                        label.style.display = 'block';
+                        border.style.display = 'block';
 
-                    label.style.top = window.scrollY + r.top - label.offsetHeight - 8 + 'px';
-                    label.style.left = window.scrollX + r.left + 'px';
+                        label.style.top = window.scrollY + r.top - label.offsetHeight - 8 + 'px';
+                        label.style.left = window.scrollX + r.left + 'px';
 
-                    border.style.top = window.scrollY + r.top - 8 + 'px';
-                    border.style.left = window.scrollX + r.left - 8 + 'px';
-                    border.style.width = r.width + 16 + 'px';
-                    border.style.height = r.height + 16 + 'px';
-                } else {
-                    label.style.display = 'none';
-                    border.style.display = 'none';
+                        border.style.top = window.scrollY + r.top - 8 + 'px';
+                        border.style.left = window.scrollX + r.left - 8 + 'px';
+                        border.style.width = r.width + 16 + 'px';
+                        border.style.height = r.height + 16 + 'px';
+                    } else {
+                        label.style.display = 'none';
+                        border.style.display = 'none';
+                    }
                 }
-            }
 
-            function highlight() {
-                border.style.borderColor = '#393';
-                border.style.boxShadow = '1px 2px 5px #CCC';
-                label.style.borderColor = '#393';
-                label.style.boxShadow = '1px 2px 5px #CCC';
-            }
+                function highlight() {
+                    border.style.borderColor = '#393';
+                    border.style.boxShadow = '1px 2px 5px #CCC';
+                    label.style.borderColor = '#393';
+                    label.style.boxShadow = '1px 2px 5px #CCC';
+                }
 
-            function unhighlight() {
-                border.style.borderColor = '#CCC';
-                border.style.boxShadow = 'none';
-                label.style.borderColor = '#CCC';
-                label.style.boxShadow = 'none';
-            }
+                function unhighlight() {
+                    border.style.borderColor = '#CCC';
+                    border.style.boxShadow = 'none';
+                    label.style.borderColor = '#CCC';
+                    label.style.boxShadow = 'none';
+                }
 
-            addListener(toolKey, table, 'mouseover', highlight);
-            addListener(toolKey, table, 'mouseout', unhighlight);
-            addListener(toolKey, label, 'mouseover', highlight);
-            addListener(toolKey, label, 'mouseout', unhighlight);
+                addListener(toolKey, table, 'mouseover', highlight);
+                addListener(toolKey, table, 'mouseout', unhighlight);
+                addListener(toolKey, label, 'mouseover', highlight);
+                addListener(toolKey, label, 'mouseout', unhighlight);
 
-            updatePositions();
+                updatePositions();
 
-            attachAutoUpdate(toolKey, updatePositions, {
-                attributeFilter: ['style', 'class', 'hidden']
+                attachAutoUpdate(toolKey, updatePositions, {
+                    attributeFilter: ['style', 'class', 'hidden']
+                });
             });
+        }
+
+        const debouncedScan = debounce(scanTables, 120);
+        const observer = new MutationObserver((mutations) => {
+            debouncedScan();
         });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        addObserver(toolKey, observer);
+
+        scanTables();
 
         function analyzeTableForA11yIssues(table) {
             const issues = [];
@@ -912,7 +1153,6 @@
                     const rspan = parseInt(cell.getAttribute('rowspan') || "1", 10);
                     const cspan = parseInt(cell.getAttribute('colspan') || "1", 10);
 
-                    // Detect merged cells
                     if (rspan > 1) {
                         issues.push(`Column ${colIndex + 1} contains a cell merged across ${rspan} rows`);
                     }
@@ -920,7 +1160,6 @@
                         issues.push(`Row ${rowIndex + 1} contains a cell merged across ${cspan} columns`);
                     }
 
-                    // Detect missing scope on header cells
                     if (cell.tagName.toLowerCase() === 'th') {
                         const scope = cell.getAttribute('scope');
                         if (!scope) {
