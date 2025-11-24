@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         H5P Language Selector
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-20
+// @version      2025-11-24
 // @description  Scroll to a certain language in the H5P dropdown menu, or use ctrl + q to apply it automatically (robust version)
 // @author       Wyatt Nilsson
 // @match        https://byu.h5p.com/*
@@ -100,14 +100,11 @@
 
     // Try to select the language
     function selectLanguage(panel) {
-        if (!panel) { console.log('selectLanguage: no panel'); return false; }
+        if (!panel) { return false; }
         const btn = findLanguageButton(panel);
         if (!btn) {
-            console.log("Language not found in panel:", TARGET_TEXT);
             return false;
         }
-
-        console.log("selectLanguage: found target element:", btn, "text:", (btn.textContent || '').trim());
 
         // scroll into view with our robust scroll helper
         scrollDropdownPanel(panel);
@@ -179,7 +176,6 @@
                     });
 
                     if (!langButton) {
-                        console.log('H5P-LangSelector: language dropdown button not found.');
                         return;
                     }
 
@@ -202,9 +198,6 @@
         // Attach to both document and window to catch focus/keydown variations
         try { doc.addEventListener('keydown', keyHandler, true); } catch (err) {}
         try { targetWin.addEventListener('keydown', keyHandler, true); } catch (err) {}
-
-        // For visibility: log that we attached to this doc
-        try { console.log('H5P-LangSelector: attached to doc', doc.location && doc.location.href); } catch (e) { console.log('H5P-LangSelector: attached to doc (no href)'); }
     }
 
     function attachToIframe(iframe) {
