@@ -11,7 +11,7 @@ This script provides many accessibility tools that automatically run on Canvas p
 |Heading Tags                | Adds overlays to headings showing what level of heading they are.                            |
 |Contrast Issues             | Highlights contrast issues with a blue outline.                                              |
 |\<i\>\/\<b\> Usage          | Highlights usage of \<i\> and \<b\> tags with a red outline.                                 |
-|Lang Attributes             | Highlights potential other languages that are missing a lang attribute.                      |
+|Lang Attributes             | Highlights potential non-English text that is missing a lang attribute.                      |
 |Table Problems              | Highlights tables that need scope attributes or have merged cells.                           |
 
 This script also uses englishWords.txt as part of the lang attributes checking.
