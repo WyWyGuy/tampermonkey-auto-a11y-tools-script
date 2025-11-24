@@ -14,7 +14,7 @@ This script provides many accessibility tools that automatically run on Canvas p
 |Lang Attributes             | Highlights potential other languages that are missing a lang attribute.                      |
 |Table Problems              | Highlights tables that need scope attributes or have merged cells.                           |
 
-This script also uses extraWords.txt as part of the lang attributes checking.
+This script also uses englishWords.txt as part of the lang attributes checking.
 
 # ColorChecker.user.js
 
