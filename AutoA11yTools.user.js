@@ -974,10 +974,14 @@
                 const text = textNode.textContent;
                 let charIndex = 0;
 
-                const words = text.split(/\b/);
+                const words = text.match(/[\p{L}-]+|\S/gu);
 
                 words.forEach(word => {
-                    const cleanWord = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
+                    let cleanWord = word
+                    .replace(/[^\p{L}-]+/gu, '') // keep letters + hyphens only
+                    .replace(/(?<!\p{L})-(?!\p{L})/gu, '') // remove hyphens not between letters
+                    .replace(/^-+|-+$/g, '') // trim leading/trailing hyphens
+                    .toLowerCase();
                     const nearestLang = getNearestLang(textNode.parentElement);
 
                     if (cleanWord && !englishWords.has(cleanWord) && (!nearestLang || nearestLang === 'en') && (!isInsideAccessibilityHelper(textNode.parentElement))) {
