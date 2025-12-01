@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-12-01.1
+// @version      2025-12-01.2
 // @description  A set of accessibility tools to use for BYU's Accessibility Team
 // @author       Wyatt Nilsson
 // @match        *://*/*
@@ -971,26 +971,31 @@
 
             let textNode;
             while ((textNode = walker.nextNode())) {
-                const text = textNode.textContent;
-                let charIndex = 0;
+                const wordRegex = /[\p{L}-]+/gu;
+                let match;
+                while ((match = wordRegex.exec(textNode.textContent)) !== null) {
+                    const word = match[0]; // the matched text in the node
+                    const start = match.index; // exact start index in textNode
+                    const end = start + word.length;
 
-                const words = text.match(/[\p{L}-]+|\S/gu);
-
-                words.forEach(word => {
                     let cleanWord = word
                     .replace(/[^\p{L}-]+/gu, '') // keep letters + hyphens only
                     .replace(/(?<!\p{L})-(?!\p{L})/gu, '') // remove hyphens not between letters
                     .replace(/^-+|-+$/g, '') // trim leading/trailing hyphens
                     .toLowerCase();
+
                     const nearestLang = getNearestLang(textNode.parentElement);
 
-                    if (cleanWord && !englishWords.has(cleanWord) && (!nearestLang || nearestLang === 'en') && (!isInsideAccessibilityHelper(textNode.parentElement))) {
-
-                        const matchKey = `${textNode.__a11yId || (textNode.__a11yId = Math.random())}:${charIndex}`;
+                    if (cleanWord &&
+                        !englishWords.has(cleanWord) &&
+                        (!nearestLang || nearestLang === 'en') &&
+                        (!isInsideAccessibilityHelper(textNode.parentElement))
+                       ) {
+                        const matchKey = `${textNode.__a11yId || (textNode.__a11yId = Math.random())}:${start}`;
                         if (!processedLangMatches.has(matchKey)) {
                             const range = document.createRange();
-                            range.setStart(textNode, charIndex);
-                            range.setEnd(textNode, charIndex + word.length);
+                            range.setStart(textNode, start);
+                            range.setEnd(textNode, end);
 
                             const rect = range.getBoundingClientRect();
                             range.detach();
@@ -1010,7 +1015,7 @@
 
                                 border._a11yTarget = textNode.parentElement;
                                 border._a11yTextNode = textNode;
-                                border._a11yMatchIndex = charIndex;
+                                border._a11yMatchIndex = start;
                                 border._a11yMatchLength = word.length;
 
                                 function highlight() { border.classList.add('LangOverlay-highlight'); }
@@ -1021,9 +1026,8 @@
                             }
                         }
                     }
+                }
 
-                    charIndex += word.length;
-                });
             }
         }
 
