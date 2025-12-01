@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-12-01.3
+// @version      2025-12-01.4
 // @description  A set of accessibility tools to use for BYU's Accessibility Team
 // @author       Wyatt Nilsson
 // @match        *://*/*
@@ -971,18 +971,14 @@
 
             let textNode;
             while ((textNode = walker.nextNode())) {
-                const wordRegex = /[\p{L}-]+/gu;
+                const wordRegex = /[\p{L}]+/gu;
                 let match;
                 while ((match = wordRegex.exec(textNode.textContent)) !== null) {
                     const word = match[0]; // the matched text in the node
                     const start = match.index; // exact start index in textNode
                     const end = start + word.length;
 
-                    let cleanWord = word
-                    .replace(/[^\p{L}-]+/gu, '') // keep letters + hyphens only
-                    .replace(/(?<!\p{L})-(?!\p{L})/gu, '') // remove hyphens not between letters
-                    .replace(/^-+|-+$/g, '') // trim leading/trailing hyphens
-                    .toLowerCase();
+                    let cleanWord = word.replace(/[^\p{L}]+/gu, '').toLowerCase();
 
                     const nearestLang = getNearestLang(textNode.parentElement);
 
