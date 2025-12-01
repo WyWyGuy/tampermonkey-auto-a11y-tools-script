@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-12-01.2
+// @version      2025-12-01.3
 // @description  A set of accessibility tools to use for BYU's Accessibility Team
 // @author       Wyatt Nilsson
 // @match        *://*/*
@@ -947,9 +947,9 @@
             return null;
         }
 
-        function isInsideAccessibilityHelper(node) {
+        function isInsideSelectClasses(node) {
             while (node && node.nodeType === Node.ELEMENT_NODE) {
-                if (node.classList && node.classList.contains('AccessibilityHelper')) {
+                if (node.classList && (node.classList.contains('AccessibilityHelper') || (node.classList.contains('sr-only') || (node.classList.contains('screenreader-only'))))) {
                     return true;
                 }
                 node = node.parentElement;
@@ -989,7 +989,7 @@
                     if (cleanWord &&
                         !englishWords.has(cleanWord) &&
                         (!nearestLang || nearestLang === 'en') &&
-                        (!isInsideAccessibilityHelper(textNode.parentElement))
+                        (!isInsideSelectClasses(textNode.parentElement))
                        ) {
                         const matchKey = `${textNode.__a11yId || (textNode.__a11yId = Math.random())}:${start}`;
                         if (!processedLangMatches.has(matchKey)) {
