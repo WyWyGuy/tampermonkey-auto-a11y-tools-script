@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-24
+// @version      2025-12-01
 // @description  A set of accessibility tools to use for BYU's Accessibility Team
 // @author       Wyatt Nilsson
 // @match        *://*/*
@@ -20,7 +20,7 @@
 (function () {
     'use strict';
 
-    // Prevent running in iframes
+    // Prevent multiple instances of the script running
     if (window.top !== window.self) return;
 
     const autoRunDomains = [
@@ -947,6 +947,16 @@
             return null;
         }
 
+        function isInsideAccessibilityHelper(node) {
+            while (node && node.nodeType === Node.ELEMENT_NODE) {
+                if (node.classList && node.classList.contains('AccessibilityHelper')) {
+                    return true;
+                }
+                node = node.parentElement;
+            }
+            return false;
+        }
+
         function scanLang() {
             const walker = document.createTreeWalker(
                 container,
@@ -970,7 +980,7 @@
                     const cleanWord = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
                     const nearestLang = getNearestLang(textNode.parentElement);
 
-                    if (cleanWord && !englishWords.has(cleanWord) && (!nearestLang || nearestLang === 'en')) {
+                    if (cleanWord && !englishWords.has(cleanWord) && (!nearestLang || nearestLang === 'en') && (!isInsideAccessibilityHelper(textNode.parentElement))) {
 
                         const matchKey = `${textNode.__a11yId || (textNode.__a11yId = Math.random())}:${charIndex}`;
                         if (!processedLangMatches.has(matchKey)) {
