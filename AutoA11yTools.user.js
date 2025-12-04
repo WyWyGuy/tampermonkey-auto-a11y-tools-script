@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto A11y Tools
 // @namespace    http://tampermonkey.net/
-// @version      2025-12-01.4
+// @version      2025-12-04
 // @description  A set of accessibility tools to use for BYU's Accessibility Team
 // @author       Wyatt Nilsson
 // @match        *://*/*
@@ -33,7 +33,12 @@
     const excludedPaths = [
         /^https:\/\/byu\.instructure\.com\/courses\/1026(\/|$)/, // Training course
         /^(https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses\/\d+\/modules)$/, // Any course's modules page
-        /^(https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses\/\d+\/(pages|assignments|quizzes)\/[^/]+\/edit)$/ // Any course's edit view
+        /^(https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses\/\d+\/(pages|assignments|quizzes)\/[^/]+\/edit)$/, // Any course's edit view
+        /^(https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses\/\d+\/files(?:\/.*)?)$/, // Any course's files page or subfolder
+        /^https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/courses$/, // Canvas courses page
+        /^https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/?$/, // Canvas main page
+        /^https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/calendar(?:\/.*|[#?].*)?$/, // Canvas calendar page
+        /^https:\/\/(?:byu|byuis|byuismastercourses|byuohs)\.instructure\.com\/conversations(?:\/.*|[#?].*)?$/ // Canvas inbox page
     ];
     const currentHost = window.location.hostname;
     const isAutoRunDomain = autoRunDomains.includes(currentHost);
@@ -337,6 +342,16 @@
             if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= window.innerWidth || rect.top >= window.innerHeight) {
                 return true;
             }
+        }
+        let parent = el.parentElement;
+        while (parent) {
+            if (parent.hasAttribute('aria-hidden') && parent.getAttribute('aria-hidden').toLowerCase() === 'true') {
+                return true;
+            }
+            if (parent.tagName.toLowerCase() === 'details' && !parent.hasAttribute('open')) {
+                return true;
+            }
+            parent = parent.parentElement;
         }
         return false;
     }
@@ -769,7 +784,7 @@
                 if (ratio < threshold) {
                     const border = makeBorder(toolKey, 'ContrastOverlay-border A11y-contrast-border');
                     contrastOverlayContainer.appendChild(border);
-                    border._a11yTarget = el;console.log(el);console.log('Contrast check for', el, 'color:', color, 'background:', bg, 'ratio:', ratio);
+                    border._a11yTarget = el;
 
 
                     function update() {
@@ -805,7 +820,6 @@
                 const el = border._a11yTarget;
                 if (!el) return;
                 const r = el.getBoundingClientRect();
-                console.log("UPDATING BORDERS");
                 if (isVisible(el)) {
                     border.style.display = 'block';
                     const top = Math.round(r.top - 4);
