@@ -9,6 +9,8 @@
 // @match        https://byuismastercourses.instructure.com/courses/*/modules
 // @match        https://byuohs.instructure.com/courses/*/modules
 // @icon         https://assets.topadvisor.com/media/_solution_logo_03202023_46576647.png
+// @updateURL    https://raw.githubusercontent.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/main/ModuleCountingTool.user.js
+// @downloadURL  https://raw.githubusercontent.com/WyWyGuy/tampermonkey-auto-a11y-tools-script/main/ModuleCountingTool.user.js
 // @grant        none
 // ==/UserScript==
 
@@ -67,7 +69,7 @@
     modules.forEach((mod, i) => {
         const label = document.createElement('div');
         label.className = 'AccessibilityHelper AccessibilityHelper-label';
-        label.textContent = (i + 1).toString(); // 1-indexed order
+        label.textContent = "Module " + (i + 1).toString(); // 1-indexed order
 
         const border = document.createElement('div');
         border.className = 'AccessibilityHelper AccessibilityHelper-border';
