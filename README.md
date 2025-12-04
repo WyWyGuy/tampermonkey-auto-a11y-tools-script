@@ -31,3 +31,7 @@ This script automatically runs through four pre-named filters and downloads the 
 # ModuleCountingTool.user.js
 
 This script simply labels each module in Canvas with its index (1-indexed) to easily determine which modules to be used in a prototype review.
+
+# ClickRawHTMLEditor.user.js
+
+This script simply clicks the edit as HTML button and switches to the raw HTML editor if it isn't already on every Canvas edit page.
