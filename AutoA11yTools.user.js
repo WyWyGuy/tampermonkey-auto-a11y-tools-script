@@ -786,7 +786,6 @@
                     contrastOverlayContainer.appendChild(border);
                     border._a11yTarget = el;
 
-
                     function update() {
                         const r = el.getBoundingClientRect();
                         if (isVisible(el)) {
