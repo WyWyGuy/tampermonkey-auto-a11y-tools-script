@@ -27,3 +27,7 @@ This script allows you to choose the language when editing an H5P quickly. Simpl
 # DownloadSLASpreadsheets.user.js
 
 This script automatically runs through four pre-named filters and downloads the Excel files for each filter in Teamwork. The filters are named "SLA - Prototypes", "SLA - 50% Reviews", "SLA - PSIAs", and "SLA - Peer Verifications".
+
+# ModuleCountingTool.user.js
+
+This script simply labels each module in Canvas with its index (1-indexed) to easily determine which modules to be used in a prototype review.
