@@ -22,7 +22,7 @@ This script is a custom color contrast checker tool. Clicking it activates the c
 
 # H5PLanguageSelector.user.js
 
-This script allows you to choose the language when editing an H5P quickly. Simply select the text you'd like to edit, then type Ctrl + q or click the language dropdown menu. It will select the language defined in the code near the top.
+This script allows you to choose the language when editing an H5P quickly. Simply select the text you'd like to edit, then type Ctrl + q or click the language dropdown menu. A command in the Tampermonkey menu allows you to choose the language.
 
 # DownloadSLASpreadsheets.user.js
 
