@@ -1,19 +1,44 @@
 // ==UserScript==
 // @name         H5P Language Selector
 // @namespace    http://tampermonkey.net/
-// @version      2025-11-24
+// @version      2025-12-04
 // @description  Scroll to a certain language in the H5P dropdown menu, or use ctrl + q to apply it automatically (robust version)
 // @author       Wyatt Nilsson
 // @match        https://byu.h5p.com/*
 // @icon         https://i0.wp.com/www.aufieroinformatica.com/wp-content/uploads/sites/7/2025/06/h5p_logo.png?fit=195%2C195&ssl=1
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    const TARGET_TEXT = "chinese, simplified"; // partial match, case-insensitive
+    let TARGET_TEXT; // partial match, case-insensitive
     const visiblePanels = new WeakSet();
+
+    // Load/Save language selection from Tampermonkey storage
+    function loadLanguageSetting() {
+        let saved = GM_getValue("H5P_LANG_TARGET", null);
+
+        if (saved && typeof saved === "string") {
+            TARGET_TEXT = saved;
+            return;
+        }
+
+        // no saved language — ask user
+        getNewLanguage();
+    }
+
+    function getNewLanguage() {
+        const userInput = prompt("Enter the language to auto-select (partial match, case-insensitive):", TARGET_TEXT);
+        if (!userInput) return;
+
+        TARGET_TEXT = userInput.trim().toLowerCase();
+        GM_setValue("H5P_LANG_TARGET", TARGET_TEXT);
+    }
+
+    GM_registerMenuCommand("Set H5P Language", getNewLanguage);
 
     // Recursively query inside shadow roots
     function deepQueryAll(root, selector) {
@@ -135,7 +160,7 @@
                 const panels = deepQueryAll(doc, '.ck-dropdown__panel, .ck-dropdown__panel-visible, .ck-dropdown__panel.ck-on');
                 panels.forEach(panel => {
                     const isVisible = panel.classList && (panel.classList.contains('ck-on') || panel.classList.contains('ck-dropdown__panel-visible')) ||
-                                      (panel.offsetParent !== null && getComputedStyle(panel).display !== 'none');
+                          (panel.offsetParent !== null && getComputedStyle(panel).display !== 'none');
 
                     if (isVisible && !visiblePanels.has(panel)) {
                         // New panel opened
@@ -209,6 +234,9 @@
             // cross-origin iframe; ignore
         }
     }
+
+    // Load any previous language
+    loadLanguageSetting();
 
     // Attach to existing iframes first
     document.querySelectorAll('iframe').forEach(attachToIframe);
